@@ -1,0 +1,151 @@
+.page-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.navbar {
+  padding: 1.2rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(120deg, #093028, #237a57);
+  color: #f5f7eb;
+}
+
+.navbar h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.navbar p {
+  margin: 0.25rem 0 0;
+  opacity: 0.8;
+}
+
+.user-chip {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: end;
+}
+
+.user-chip button {
+  margin-top: 0.35rem;
+}
+
+.main-grid {
+  width: min(1100px, 94vw);
+  margin: 1.25rem auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid #dce8df;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 10px 30px rgba(20, 40, 25, 0.08);
+}
+
+.tab-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.tab-row button.active {
+  background: #237a57;
+  color: #fff;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  border: 1px solid #b4c6b7;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+}
+
+.muted {
+  color: #5f6d62;
+}
+
+.assets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.asset-list {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.asset-card {
+  border: 1px solid #dbe8df;
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: #f7faf8;
+}
+
+.asset-card h4 {
+  margin: 0;
+}
+
+.asset-meta {
+  margin-top: 0.4rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  color: #355447;
+}
+
+.info-block {
+  background: #edf5ef;
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+
+.error-toast {
+  position: fixed;
+  right: 1rem;
+  top: 1rem;
+  background: #8f2c2c;
+  color: #fff;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.2);
+  max-width: 320px;
+}
+
+.footer {
+  padding: 0.8rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #365042;
+  background: #e8f1ea;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .navbar {
+    gap: 0.8rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .footer {
+    flex-direction: column;
+  }
+}
