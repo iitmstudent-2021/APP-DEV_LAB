@@ -1,7 +1,10 @@
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
+import alertRoutes from "./routes/alerts.routes";
 import authRoutes from "./routes/auth.routes";
 import assetRoutes from "./routes/assets.routes";
+import statsRoutes from "./routes/stats.routes";
+import userRoutes from "./routes/users.routes";
 
 export const app = express();
 
@@ -18,6 +21,9 @@ app.get("/api/health", (_req: Request, res: Response) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
+app.use("/api/alerts", alertRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/stats", statsRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: "Resource not found" });

@@ -1,20 +1,44 @@
 import { Request, Response } from "express";
-import { AssetCategory } from "../entities/BESSAsset";
+import { AssetCategory, AssetStatus } from "../entities/BESSAsset";
 import { UserRole } from "../entities/User";
 import { AssetService } from "../services/AssetService";
 
-const isValidCategory = (value: unknown): value is AssetCategory => {
-  return typeof value === "string" && Object.values(AssetCategory).includes(value as AssetCategory);
-};
+const isValidCategory = (value: unknown): value is AssetCategory =>
+  typeof value === "string" && Object.values(AssetCategory).includes(value as AssetCategory);
+
+const isValidStatus = (value: unknown): value is AssetStatus =>
+  typeof value === "string" && Object.values(AssetStatus).includes(value as AssetStatus);
 
 export const AssetController = {
   async list(req: Request, res: Response) {
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
-    const assets = await AssetService.listForRole(req.user.id, req.user.role as UserRole);
+    const filters = {
+      status: isValidStatus(req.query.status) ? req.query.status : undefined,
+      category: isValidCategory(req.query.category) ? req.query.category : undefined,
+    };
+
+    const assets = await AssetService.listForRole(req.user.id, req.user.role as UserRole, filters);
     return res.status(200).json({ assets });
+  },
+
+  async updateStatus(req: Request, res: Response) {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      const assetId = req.params.assetId as string;
+      const { status } = req.body;
+
+      if (!isValidStatus(status)) {
+        return res.status(400).json({ message: "Invalid status. Use ACTIVE, UNDER_MAINTENANCE, OFFLINE, or DECOMMISSIONED" });
+      }
+
+      const asset = await AssetService.updateStatus(assetId, status, req.user.id, req.user.role as UserRole);
+      return res.status(200).json({ asset });
+    } catch (error) {
+      const msg = (error as Error).message;
+      return res.status(msg.includes("not found") ? 404 : 400).json({ message: msg });
+    }
   },
 
   async create(req: Request, res: Response) {

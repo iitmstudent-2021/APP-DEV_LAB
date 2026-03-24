@@ -1,0 +1,67 @@
+BESS OPS PORTAL - QUICK RUN + LOGIN CREDENTIALS
+
+Project root:
+/home/pankajmsah/APP DEV_LAB/fullstack-app
+
+==================================================
+1) START BACKEND (Terminal 1)
+==================================================
+cd "/home/pankajmsah/APP DEV_LAB/fullstack-app/server"
+# Run this only first time if .env is missing:
+# cp .env.example .env
+
+# Ensure this line exists in server/.env for local run:
+# DB_TYPE=sqlite
+npm install
+npm run dev
+
+==================================================
+2) START FRONTEND (Terminal 2)
+==================================================
+cd "/home/pankajmsah/APP DEV_LAB/fullstack-app/client"
+npm install
+npm run dev
+
+Open browser URL shown by Vite (usually):
+http://localhost:5173
+If 5173 is busy, use the next one printed (example: 5174).
+
+==================================================
+3) LOGIN CREDENTIALS
+==================================================
+
+Admin Account:
+Full name: PANKAJ
+Email: admin@bess.com
+Password: Admin@123
+
+Manager Account:
+Full name: Manager1
+Email: manager1@bess.com
+Password: Manager1@bess
+
+Technician Account:
+Full name: Arjun Sharma
+Email: arjun.tech@bess.com
+Password: Arjun@bess1
+NOTE: Register via Register tab (role: Field Technician).
+      Admin or Manager must assign assets before Technician can see them.
+
+If login fails:
+- Go to Register tab and create a new account with a new email.
+- Then login with that new email/password.
+
+==================================================
+4) OPTIONAL CLEAN BROWSER STATE
+==================================================
+Open browser DevTools Console and run:
+localStorage.clear()
+
+==================================================
+5) DAILY QUICK START (copy-paste)
+==================================================
+# Terminal 1
+cd "/home/pankajmsah/APP DEV_LAB/fullstack-app/server" && npm run dev
+
+# Terminal 2
+cd "/home/pankajmsah/APP DEV_LAB/fullstack-app/client" && npm run dev
