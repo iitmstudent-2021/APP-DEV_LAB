@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
+import { BarChart, Bar, PieChart, Pie, Cell, Tooltip, XAxis, YAxis, ResponsiveContainer, Legend } from "recharts";
 import api from "../services/api";
+
+const PIE_COLORS = ["#22c55e", "#f59e0b", "#ef4444", "#94a3b8"];
 
 export default function AdminDashboard({ user }) {
   const [assets, setAssets] = useState([]);
+  const [total, setTotal] = useState(0);
   const [alerts, setAlerts] = useState([]);
   const [users, setUsers] = useState([]);
   const [technicians, setTechnicians] = useState([]);
@@ -13,8 +17,18 @@ export default function AdminDashboard({ user }) {
   const [assetLogs, setAssetLogs] = useState([]);
   const [assetAlerts, setAssetAlerts] = useState([]);
   const [activeTab, setActiveTab] = useState("assets");
+
+  // Filters + pagination + search + sort
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [search, setSearch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [sortBy, setSortBy] = useState("");
+  const [sortOrder, setSortOrder] = useState("DESC");
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -23,13 +37,22 @@ export default function AdminDashboard({ user }) {
     else { setSuccess(msg); setTimeout(() => setSuccess(""), 3000); }
   };
 
-  const loadAssets = async (status = filterStatus, category = filterCategory) => {
+  const buildParams = (overrides = {}) => {
+    const p = {
+      status: filterStatus, category: filterCategory, search,
+      startDate, endDate, sortBy, sortOrder,
+      page, limit, ...overrides,
+    };
+    const params = new URLSearchParams();
+    Object.entries(p).forEach(([k, v]) => { if (v) params.append(k, v); });
+    return params.toString();
+  };
+
+  const loadAssets = async (overrides = {}) => {
     try {
-      const params = new URLSearchParams();
-      if (status) params.append("status", status);
-      if (category) params.append("category", category);
-      const res = await api.get(`/assets?${params}`);
+      const res = await api.get(`/assets?${buildParams(overrides)}`);
       setAssets(res.data.assets || []);
+      setTotal(res.data.total || 0);
     } catch { flash("Failed to load assets", true); }
   };
 
@@ -55,15 +78,18 @@ export default function AdminDashboard({ user }) {
     } catch { /* stats are non-critical */ }
   };
 
-  useEffect(() => {
-    loadAssets();
-    loadAlerts();
-    loadUsers();
-    loadStats();
-  }, []);
+  useEffect(() => { loadAssets(); loadAlerts(); loadUsers(); loadStats(); }, []);
 
-  const applyFilters = () => { loadAssets(filterStatus, filterCategory); setSelectedAsset(null); };
-  const clearFilters = () => { setFilterStatus(""); setFilterCategory(""); loadAssets("", ""); setSelectedAsset(null); };
+  const applyFilters = () => { setPage(1); loadAssets({ page: 1 }); setSelectedAsset(null); };
+  const clearFilters = () => {
+    setFilterStatus(""); setFilterCategory(""); setSearch("");
+    setStartDate(""); setEndDate(""); setSortBy(""); setSortOrder("DESC");
+    setPage(1);
+    loadAssets({ status: "", category: "", search: "", startDate: "", endDate: "", sortBy: "", sortOrder: "DESC", page: 1 });
+    setSelectedAsset(null);
+  };
+
+  const goPage = (newPage) => { setPage(newPage); loadAssets({ page: newPage }); };
 
   const openAsset = async (asset) => {
     setSelectedAsset(asset);
@@ -105,8 +131,7 @@ export default function AdminDashboard({ user }) {
       const res = await api.patch(`/assets/${assetId}/status`, { status: newStatus });
       flash(`Status updated to ${newStatus}`);
       if (selectedAsset?.id === assetId) setSelectedAsset(res.data.asset);
-      loadAssets();
-      loadStats();
+      loadAssets(); loadStats();
     } catch (e) { flash(e.response?.data?.message || "Failed to update status", true); }
   };
 
@@ -114,8 +139,7 @@ export default function AdminDashboard({ user }) {
     try {
       await api.patch(`/alerts/${alertId}`, { status });
       flash(`Alert marked as ${status}`);
-      loadAlerts();
-      loadStats();
+      loadAlerts(); loadStats();
       if (selectedAsset) {
         const res = await api.get(`/assets/${selectedAsset.id}/alerts`);
         setAssetAlerts(res.data.alerts || []);
@@ -127,6 +151,21 @@ export default function AdminDashboard({ user }) {
   const statusClass = (s) => s === "OPEN" ? "badge-critical" : s === "ACKNOWLEDGED" ? "badge-warning" : "badge-ok";
   const assetStatusClass = (s) => s === "ACTIVE" ? "badge-ok" : s === "UNDER_MAINTENANCE" ? "badge-warning" : s === "OFFLINE" ? "badge-critical" : "badge";
 
+  const totalPages = Math.ceil(total / limit);
+
+  // Chart data derived from stats
+  const pieData = stats ? [
+    { name: "Active", value: stats.assets.active },
+    { name: "Maintenance", value: stats.assets.underMaintenance },
+    { name: "Offline", value: stats.assets.offline },
+    { name: "Decommissioned", value: stats.assets.decommissioned },
+  ].filter(d => d.value > 0) : [];
+
+  const barData = stats?.assetsPerMonth?.map(m => ({
+    month: m.month,
+    Assets: Number(m.count),
+  })) || [];
+
   return (
     <div className="dashboard-layout">
       {error && <div className="toast toast-error">{error}</div>}
@@ -136,7 +175,8 @@ export default function AdminDashboard({ user }) {
         <div className="dash-role-badge">ADMIN</div>
         <p className="muted small">{user?.email}</p>
         <nav className="dash-nav">
-          <button className={activeTab === "assets" ? "active" : ""} onClick={() => { setActiveTab("assets"); setSelectedAsset(null); }}>Assets ({assets.length})</button>
+          <button className={activeTab === "assets" ? "active" : ""} onClick={() => { setActiveTab("assets"); setSelectedAsset(null); }}>Assets ({total})</button>
+          <button className={activeTab === "charts" ? "active" : ""} onClick={() => { setActiveTab("charts"); setSelectedAsset(null); }}>Analytics</button>
           <button className={activeTab === "alerts" ? "active" : ""} onClick={() => { setActiveTab("alerts"); setSelectedAsset(null); }}>
             All Alerts {stats ? `(${stats.alerts.open} open)` : ""}
           </button>
@@ -145,7 +185,7 @@ export default function AdminDashboard({ user }) {
       </div>
 
       <div className="dash-main">
-        {/* KPI CARDS — shown on all tabs when no asset selected */}
+        {/* KPI CARDS */}
         {!selectedAsset && stats && (
           <div className="kpi-grid">
             <div className="kpi-card">
@@ -169,15 +209,47 @@ export default function AdminDashboard({ user }) {
             <div className="kpi-card">
               <div className="kpi-value">{stats.users.technicians}</div>
               <div className="kpi-label">Technicians</div>
-              <div className="kpi-sub">
-                <span className="badge">{stats.users.managers} Managers</span>
-              </div>
+              <div className="kpi-sub"><span className="badge">{stats.users.managers} Managers</span></div>
             </div>
             <div className="kpi-card">
               <div className="kpi-value">{stats.maintenanceLogs.total}</div>
               <div className="kpi-label">Maintenance Logs</div>
-              <div className="kpi-sub">
-                <span className="badge badge-ok">{stats.alerts.resolved} Alerts resolved</span>
+              <div className="kpi-sub"><span className="badge badge-ok">{stats.alerts.resolved} Alerts resolved</span></div>
+            </div>
+          </div>
+        )}
+
+        {/* ANALYTICS TAB */}
+        {activeTab === "charts" && !selectedAsset && stats && (
+          <div>
+            <h2>Platform Analytics</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", marginTop: "1.5rem" }}>
+              <div className="detail-section">
+                <h3>Assets by Status</h3>
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, value }) => `${name}: ${value}`}>
+                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="detail-section">
+                <h3>Assets Registered (Last 6 Months)</h3>
+                {barData.length === 0
+                  ? <p className="muted small">No data yet.</p>
+                  : (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={barData}>
+                        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="Assets" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
               </div>
             </div>
           </div>
@@ -191,8 +263,10 @@ export default function AdminDashboard({ user }) {
               <button className="btn-secondary" onClick={() => { loadAssets(); loadStats(); }}>Refresh</button>
             </div>
 
-            {/* Filter Bar */}
-            <div className="filter-bar">
+            {/* Filter + Search + Sort Bar */}
+            <div className="filter-bar" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+              <input placeholder="Search name / site..." value={search} onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && applyFilters()} style={{ minWidth: "160px" }} />
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                 <option value="">All Statuses</option>
                 <option value="ACTIVE">Active</option>
@@ -206,8 +280,20 @@ export default function AdminDashboard({ user }) {
                 <option value="COMMERCIAL">Commercial</option>
                 <option value="RESIDENTIAL">Residential</option>
               </select>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} title="Install date from" />
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} title="Install date to" />
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                <option value="">Sort by</option>
+                <option value="name">Name</option>
+                <option value="capacityKwh">Capacity</option>
+                <option value="installationDate">Install Date</option>
+              </select>
+              <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
+                <option value="DESC">DESC</option>
+                <option value="ASC">ASC</option>
+              </select>
               <button className="btn-primary" onClick={applyFilters}>Filter</button>
-              {(filterStatus || filterCategory) && <button className="btn-secondary" onClick={clearFilters}>Clear</button>}
+              <button className="btn-secondary" onClick={clearFilters}>Clear</button>
             </div>
 
             {assets.length === 0 && <p className="muted">No assets match the current filters.</p>}
@@ -225,6 +311,15 @@ export default function AdminDashboard({ user }) {
                 </div>
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button disabled={page <= 1} onClick={() => goPage(page - 1)}>‹ Prev</button>
+                <span className="muted small">Page {page} of {totalPages} ({total} total)</span>
+                <button disabled={page >= totalPages} onClick={() => goPage(page + 1)}>Next ›</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -239,11 +334,7 @@ export default function AdminDashboard({ user }) {
               </div>
               <div className="status-update-row">
                 <span className={`badge ${assetStatusClass(selectedAsset.status)}`}>{selectedAsset.status}</span>
-                <select
-                  className="status-select"
-                  value={selectedAsset.status}
-                  onChange={e => handleStatusUpdate(selectedAsset.id, e.target.value)}
-                >
+                <select className="status-select" value={selectedAsset.status} onChange={e => handleStatusUpdate(selectedAsset.id, e.target.value)}>
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="UNDER_MAINTENANCE">UNDER_MAINTENANCE</option>
                   <option value="OFFLINE">OFFLINE</option>
@@ -253,14 +344,12 @@ export default function AdminDashboard({ user }) {
             </div>
 
             <div className="detail-sections">
-              {/* Assigned Technicians */}
               <div className="detail-section">
                 <h3>Assigned Technicians</h3>
                 <div className="assign-row">
                   <select value={assignTechId} onChange={e => setAssignTechId(e.target.value)}>
                     <option value="">— Select technician —</option>
-                    {technicians
-                      .filter(t => !assetAssignments.some(a => a.technician?.id === t.id))
+                    {technicians.filter(t => !assetAssignments.some(a => a.technician?.id === t.id))
                       .map(t => <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>)}
                   </select>
                   <button className="btn-primary" onClick={handleAssign} disabled={!assignTechId}>Assign</button>
@@ -274,7 +363,6 @@ export default function AdminDashboard({ user }) {
                 ))}
               </div>
 
-              {/* Maintenance Logs */}
               <div className="detail-section">
                 <h3>Maintenance Logs ({assetLogs.length})</h3>
                 {assetLogs.length === 0 && <p className="muted small">No logs yet.</p>}
@@ -295,7 +383,6 @@ export default function AdminDashboard({ user }) {
                 ))}
               </div>
 
-              {/* Alerts */}
               <div className="detail-section">
                 <h3>Alerts ({assetAlerts.length})</h3>
                 {assetAlerts.length === 0 && <p className="muted small">No alerts.</p>}

@@ -1,5 +1,6 @@
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
+import path from "path";
 import alertRoutes from "./routes/alerts.routes";
 import authRoutes from "./routes/auth.routes";
 import assetRoutes from "./routes/assets.routes";
@@ -14,6 +15,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({ ok: true, service: "bess-server" });

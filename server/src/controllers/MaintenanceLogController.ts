@@ -7,7 +7,8 @@ const isValidLogType = (v: unknown): v is MaintenanceLogType =>
 
 export const MaintenanceLogController = {
   async list(req: Request, res: Response) {
-    const logs = await MaintenanceLogService.listForAsset(req.params.assetId as string);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    const logs = await MaintenanceLogService.listForAsset(req.params.assetId as string, limit);
     return res.status(200).json({ logs });
   },
 

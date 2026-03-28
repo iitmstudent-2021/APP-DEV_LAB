@@ -40,7 +40,7 @@ export default function TechnicianDashboard({ user }) {
     setShowAlertForm(false);
     try {
       const [logRes, alrtRes] = await Promise.all([
-        api.get(`/assets/${asset.id}/maintenance-logs`),
+        api.get(`/assets/${asset.id}/maintenance-logs?limit=5`),
         api.get(`/assets/${asset.id}/alerts`),
       ]);
       setAssetLogs(logRes.data.logs || []);
@@ -60,7 +60,7 @@ export default function TechnicianDashboard({ user }) {
       setLogForm({ logType: "ROUTINE", description: "", stateOfHealthPercent: "", temperatureCelsius: "", notes: "", visitedAt: new Date().toISOString().slice(0, 10) });
       setShowLogForm(false);
       flash("Maintenance log submitted");
-      const res = await api.get(`/assets/${selectedAsset.id}/maintenance-logs`);
+      const res = await api.get(`/assets/${selectedAsset.id}/maintenance-logs?limit=5`);
       setAssetLogs(res.data.logs || []);
     } catch (err) { flash(err.response?.data?.message || "Failed to submit log", true); }
   };
@@ -137,7 +137,7 @@ export default function TechnicianDashboard({ user }) {
               {/* Log Maintenance */}
               <div className="detail-section">
                 <div className="section-header">
-                  <h3>Maintenance Logs ({assetLogs.length})</h3>
+                  <h3>Recent Maintenance Logs (last 5)</h3>
                   <button className="btn-primary" onClick={() => { setShowLogForm(!showLogForm); setShowAlertForm(false); }}>
                     {showLogForm ? "Cancel" : "+ Log Visit"}
                   </button>

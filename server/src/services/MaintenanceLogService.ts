@@ -80,11 +80,12 @@ export const MaintenanceLogService = {
     return saved;
   },
 
-  async listForAsset(assetId: string) {
+  async listForAsset(assetId: string, limit?: number) {
     return logRepo().find({
       where: { asset: { id: assetId } },
       relations: { technician: true },
       order: { visitedAt: "DESC" },
+      ...(limit ? { take: limit } : {}),
     });
   },
 };

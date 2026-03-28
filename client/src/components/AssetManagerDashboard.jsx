@@ -3,10 +3,19 @@ import api from "../services/api";
 
 export default function AssetManagerDashboard({ user }) {
   const [assets, setAssets] = useState([]);
+  const [total, setTotal] = useState(0);
   const [technicians, setTechnicians] = useState([]);
   const [selectedAsset, setSelectedAsset] = useState(null);
+  const [managerStats, setManagerStats] = useState(null);
+
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("");
+  const [sortOrder, setSortOrder] = useState("DESC");
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
   const [assetAssignments, setAssetAssignments] = useState([]);
   const [assetLogs, setAssetLogs] = useState([]);
   const [assetAlerts, setAssetAlerts] = useState([]);
@@ -14,6 +23,7 @@ export default function AssetManagerDashboard({ user }) {
   const [alertForm, setAlertForm] = useState({ title: "", severity: "WARNING", description: "" });
   const [assetForm, setAssetForm] = useState({ name: "", siteName: "", category: "GRID_SCALE", capacityKwh: "", description: "" });
   const [showCreate, setShowCreate] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -22,18 +32,27 @@ export default function AssetManagerDashboard({ user }) {
     else { setSuccess(msg); setTimeout(() => setSuccess(""), 3000); }
   };
 
-  const loadAssets = async (status = filterStatus, category = filterCategory) => {
+  const buildParams = (overrides = {}) => {
+    const p = { status: filterStatus, category: filterCategory, search, sortBy, sortOrder, page, limit, ...overrides };
+    const params = new URLSearchParams();
+    Object.entries(p).forEach(([k, v]) => { if (v) params.append(k, String(v)); });
+    return params.toString();
+  };
+
+  const loadAssets = async (overrides = {}) => {
     try {
-      const params = new URLSearchParams();
-      if (status) params.append("status", status);
-      if (category) params.append("category", category);
-      const res = await api.get(`/assets?${params}`);
+      const res = await api.get(`/assets?${buildParams(overrides)}`);
       setAssets(res.data.assets || []);
+      setTotal(res.data.total || 0);
     } catch { flash("Failed to load assets", true); }
   };
 
-  const applyFilters = () => { loadAssets(filterStatus, filterCategory); setSelectedAsset(null); };
-  const clearFilters = () => { setFilterStatus(""); setFilterCategory(""); loadAssets("", ""); setSelectedAsset(null); };
+  const loadManagerStats = async () => {
+    try {
+      const res = await api.get("/stats/manager");
+      setManagerStats(res.data.stats);
+    } catch { /* non-critical */ }
+  };
 
   const loadTechnicians = async () => {
     try {
@@ -42,10 +61,15 @@ export default function AssetManagerDashboard({ user }) {
     } catch { flash("Failed to load technicians", true); }
   };
 
-  useEffect(() => {
-    loadAssets();
-    loadTechnicians();
-  }, []);
+  useEffect(() => { loadAssets(); loadTechnicians(); loadManagerStats(); }, []);
+
+  const applyFilters = () => { setPage(1); loadAssets({ page: 1 }); setSelectedAsset(null); };
+  const clearFilters = () => {
+    setFilterStatus(""); setFilterCategory(""); setSearch(""); setSortBy(""); setSortOrder("DESC"); setPage(1);
+    loadAssets({ status: "", category: "", search: "", sortBy: "", sortOrder: "DESC", page: 1 });
+    setSelectedAsset(null);
+  };
+  const goPage = (newPage) => { setPage(newPage); loadAssets({ page: newPage }); };
 
   const openAsset = async (asset) => {
     setSelectedAsset(asset);
@@ -69,7 +93,7 @@ export default function AssetManagerDashboard({ user }) {
       setAssetForm({ name: "", siteName: "", category: "GRID_SCALE", capacityKwh: "", description: "" });
       setShowCreate(false);
       flash("Asset created");
-      loadAssets();
+      loadAssets(); loadManagerStats();
     } catch (err) { flash(err.response?.data?.message || "Failed to create asset", true); }
   };
 
@@ -113,6 +137,21 @@ export default function AssetManagerDashboard({ user }) {
     } catch (e) { flash(e.response?.data?.message || "Failed to update alert", true); }
   };
 
+  const handleImageUpload = async (e) => {
+    e.preventDefault();
+    if (!imageFile) return;
+    const formData = new FormData();
+    formData.append("image", imageFile);
+    try {
+      const res = await api.post(`/assets/${selectedAsset.id}/image`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setSelectedAsset(prev => ({ ...prev, imageUrl: res.data.imageUrl }));
+      setImageFile(null);
+      flash("Image uploaded");
+    } catch (e) { flash(e.response?.data?.message || "Upload failed", true); }
+  };
+
   const handleStatusUpdate = async (newStatus) => {
     try {
       const res = await api.patch(`/assets/${selectedAsset.id}/status`, { status: newStatus });
@@ -126,6 +165,26 @@ export default function AssetManagerDashboard({ user }) {
   const statusClass = (s) => s === "OPEN" ? "badge-critical" : s === "ACKNOWLEDGED" ? "badge-warning" : "badge-ok";
   const assetStatusClass = (s) => s === "ACTIVE" ? "badge-ok" : s === "UNDER_MAINTENANCE" ? "badge-warning" : s === "OFFLINE" ? "badge-critical" : "badge";
 
+  const totalPages = Math.ceil(total / limit);
+
+  // Get latest SoH for a given asset from managerStats
+  const getLatestSoH = (assetId) => {
+    if (!managerStats) return null;
+    const entry = managerStats.assetSoH?.find(a => a.assetId === assetId);
+    return entry?.latestSoH ?? null;
+  };
+
+  const SoHBar = ({ value }) => {
+    if (value === null) return <p className="muted small">No readings yet</p>;
+    const cls = value < 20 ? "soh-critical" : value < 40 ? "soh-warn" : "soh-ok";
+    return (
+      <div>
+        <span className={`small ${value < 20 ? "text-critical" : value < 40 ? "text-warning" : ""}`}>SoH: <strong>{value}%</strong></span>
+        <div className="soh-bar-wrap"><div className={`soh-bar ${cls}`} style={{ width: `${value}%` }} /></div>
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard-layout">
       {error && <div className="toast toast-error">{error}</div>}
@@ -134,8 +193,20 @@ export default function AssetManagerDashboard({ user }) {
       <div className="dash-sidebar">
         <div className="dash-role-badge manager">ASSET MANAGER</div>
         <p className="muted small">{user?.email}</p>
+        {managerStats?.averageSoH !== null && managerStats?.averageSoH !== undefined && (
+          <div style={{ margin: "0.75rem 0", padding: "0.5rem 0", borderTop: "1px solid #d2e4d6", borderBottom: "1px solid #d2e4d6" }}>
+            <p className="muted small">Portfolio Avg SoH</p>
+            <div style={{ fontSize: "1.5rem", fontWeight: 700, color: managerStats.averageSoH < 20 ? "#ef4444" : managerStats.averageSoH < 40 ? "#f59e0b" : "#22c55e" }}>
+              {managerStats.averageSoH}%
+            </div>
+            <div className="soh-bar-wrap">
+              <div className={`soh-bar ${managerStats.averageSoH < 20 ? "soh-critical" : managerStats.averageSoH < 40 ? "soh-warn" : "soh-ok"}`}
+                style={{ width: `${managerStats.averageSoH}%` }} />
+            </div>
+          </div>
+        )}
         <nav className="dash-nav">
-          <button className="active" onClick={() => setSelectedAsset(null)}>My Assets ({assets.length})</button>
+          <button className="active" onClick={() => setSelectedAsset(null)}>My Assets ({total})</button>
         </nav>
         <button className="btn-primary sidebar-create" onClick={() => { setShowCreate(!showCreate); setSelectedAsset(null); }}>
           {showCreate ? "Cancel" : "+ New Asset"}
@@ -167,9 +238,11 @@ export default function AssetManagerDashboard({ user }) {
           <div>
             <div className="section-header">
               <h2>My Assets</h2>
-              <button className="btn-secondary" onClick={() => loadAssets()}>Refresh</button>
+              <button className="btn-secondary" onClick={() => { loadAssets(); loadManagerStats(); }}>Refresh</button>
             </div>
-            <div className="filter-bar">
+            <div className="filter-bar" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+              <input placeholder="Search name / site..." value={search} onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && applyFilters()} style={{ minWidth: "160px" }} />
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                 <option value="">All Statuses</option>
                 <option value="ACTIVE">Active</option>
@@ -183,23 +256,46 @@ export default function AssetManagerDashboard({ user }) {
                 <option value="COMMERCIAL">Commercial</option>
                 <option value="RESIDENTIAL">Residential</option>
               </select>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                <option value="">Sort by</option>
+                <option value="name">Name</option>
+                <option value="capacityKwh">Capacity</option>
+                <option value="installationDate">Install Date</option>
+              </select>
+              <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
+                <option value="DESC">DESC</option>
+                <option value="ASC">ASC</option>
+              </select>
               <button className="btn-primary" onClick={applyFilters}>Filter</button>
-              {(filterStatus || filterCategory) && <button className="btn-secondary" onClick={clearFilters}>Clear</button>}
+              <button className="btn-secondary" onClick={clearFilters}>Clear</button>
             </div>
+
             {assets.length === 0 && <p className="muted">No assets match current filters.</p>}
             <div className="card-grid">
-              {assets.map(a => (
-                <div className="asset-card clickable" key={a.id} onClick={() => openAsset(a)}>
-                  <h4>{a.name}</h4>
-                  <p className="muted small">{a.siteName}</p>
-                  <div className="asset-meta">
-                    <span className="badge">{a.category}</span>
-                    <span className={`badge ${assetStatusClass(a.status)}`}>{a.status}</span>
-                    <span className="badge">{a.capacityKwh} kWh</span>
+              {assets.map(a => {
+                const soh = getLatestSoH(a.id);
+                return (
+                  <div className="asset-card clickable" key={a.id} onClick={() => openAsset(a)}>
+                    <h4>{a.name}</h4>
+                    <p className="muted small">{a.siteName}</p>
+                    <div className="asset-meta">
+                      <span className="badge">{a.category}</span>
+                      <span className={`badge ${assetStatusClass(a.status)}`}>{a.status}</span>
+                      <span className="badge">{a.capacityKwh} kWh</span>
+                    </div>
+                    <SoHBar value={soh} />
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button disabled={page <= 1} onClick={() => goPage(page - 1)}>‹ Prev</button>
+                <span className="muted small">Page {page} of {totalPages} ({total} total)</span>
+                <button disabled={page >= totalPages} onClick={() => goPage(page + 1)}>Next ›</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -214,11 +310,7 @@ export default function AssetManagerDashboard({ user }) {
               </div>
               <div className="status-update-row">
                 <span className={`badge ${assetStatusClass(selectedAsset.status)}`}>{selectedAsset.status}</span>
-                <select
-                  className="status-select"
-                  value={selectedAsset.status}
-                  onChange={e => handleStatusUpdate(e.target.value)}
-                >
+                <select className="status-select" value={selectedAsset.status} onChange={e => handleStatusUpdate(e.target.value)}>
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="UNDER_MAINTENANCE">UNDER_MAINTENANCE</option>
                   <option value="OFFLINE">OFFLINE</option>
@@ -227,15 +319,25 @@ export default function AssetManagerDashboard({ user }) {
               </div>
             </div>
 
+            {/* Site Image */}
+            <div style={{ margin: "1rem 0" }}>
+              {selectedAsset.imageUrl && (
+                <img src={`http://localhost:3000${selectedAsset.imageUrl}`} alt="Site"
+                  style={{ maxHeight: "180px", borderRadius: "8px", marginBottom: "0.5rem", display: "block" }} />
+              )}
+              <form onSubmit={handleImageUpload} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} />
+                <button type="submit" className="btn-secondary" disabled={!imageFile}>Upload Image</button>
+              </form>
+            </div>
+
             <div className="detail-sections">
-              {/* Assign Technicians */}
               <div className="detail-section">
                 <h3>Assigned Technicians</h3>
                 <div className="assign-row">
                   <select value={assignTechId} onChange={e => setAssignTechId(e.target.value)}>
                     <option value="">— Select technician —</option>
-                    {technicians
-                      .filter(t => !assetAssignments.some(a => a.technician?.id === t.id))
+                    {technicians.filter(t => !assetAssignments.some(a => a.technician?.id === t.id))
                       .map(t => <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>)}
                   </select>
                   <button className="btn-primary" onClick={handleAssign} disabled={!assignTechId}>Assign</button>
@@ -249,7 +351,6 @@ export default function AssetManagerDashboard({ user }) {
                 ))}
               </div>
 
-              {/* Maintenance Logs */}
               <div className="detail-section">
                 <h3>Maintenance Logs ({assetLogs.length})</h3>
                 {assetLogs.length === 0 && <p className="muted small">No logs yet.</p>}
@@ -262,14 +363,13 @@ export default function AssetManagerDashboard({ user }) {
                     </div>
                     <p className="small">{l.description}</p>
                     <div className="log-meta">
-                      <span>SoH: <strong>{l.stateOfHealthPercent}%</strong></span>
+                      <span>SoH: <strong className={l.stateOfHealthPercent < 20 ? "text-critical" : l.stateOfHealthPercent < 40 ? "text-warning" : ""}>{l.stateOfHealthPercent}%</strong></span>
                       {l.temperatureCelsius != null && <span>Temp: <strong>{l.temperatureCelsius}°C</strong></span>}
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Alerts */}
               <div className="detail-section">
                 <h3>Alerts</h3>
                 <form className="form-inline" onSubmit={handleRaiseAlert}>

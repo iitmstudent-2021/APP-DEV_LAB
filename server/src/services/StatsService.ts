@@ -5,6 +5,33 @@ import { MaintenanceLog } from "../entities/MaintenanceLog";
 import { User, UserRole } from "../entities/User";
 
 export const StatsService = {
+  async getManagerStats(managerId: string) {
+    const assetRepo = AppDataSource.getRepository(BESSAsset);
+    const logRepo = AppDataSource.getRepository(MaintenanceLog);
+
+    const assets = await assetRepo.find({ where: { owner: { id: managerId } } });
+    const assetIds = assets.map(a => a.id);
+
+    if (assetIds.length === 0) return { averageSoH: null, assetSoH: [] };
+
+    // For each asset, get latest SoH reading
+    const assetSoH: { assetId: string; assetName: string; latestSoH: number | null }[] = [];
+    for (const asset of assets) {
+      const latestLog = await logRepo.findOne({
+        where: { asset: { id: asset.id } },
+        order: { visitedAt: "DESC" },
+      });
+      assetSoH.push({ assetId: asset.id, assetName: asset.name, latestSoH: latestLog?.stateOfHealthPercent ?? null });
+    }
+
+    const withReadings = assetSoH.filter(a => a.latestSoH !== null);
+    const averageSoH = withReadings.length > 0
+      ? Math.round(withReadings.reduce((sum, a) => sum + (a.latestSoH as number), 0) / withReadings.length * 10) / 10
+      : null;
+
+    return { averageSoH, assetSoH };
+  },
+
   async getGlobalStats() {
     const assetRepo = AppDataSource.getRepository(BESSAsset);
     const alertRepo = AppDataSource.getRepository(Alert);
@@ -43,11 +70,22 @@ export const StatsService = {
       logRepo.count(),
     ]);
 
+    // Monthly asset registration counts (last 6 months) using raw query for SQLite
+    const monthlyRaw: { month: string; count: number }[] = await AppDataSource.query(
+      `SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+       FROM bess_asset
+       GROUP BY month
+       ORDER BY month DESC
+       LIMIT 6`
+    );
+    const assetsPerMonth = monthlyRaw.reverse();
+
     return {
       assets: { total: totalAssets, active: activeAssets, underMaintenance: underMaintenanceAssets, offline: offlineAssets, decommissioned: decommissionedAssets },
       alerts: { open: openAlerts, acknowledged: acknowledgedAlerts, resolved: resolvedAlerts, critical: criticalAlerts, warning: warningAlerts, info: infoAlerts },
       users: { technicians: totalTechnicians, managers: totalManagers },
       maintenanceLogs: { total: totalLogs },
+      assetsPerMonth,
     };
   },
 };

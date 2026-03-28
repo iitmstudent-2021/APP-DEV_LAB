@@ -11,4 +11,9 @@ router.get("/", authenticate, authorize(UserRole.ADMIN), async (_req, res) => {
   return res.status(200).json({ stats });
 });
 
+router.get("/manager", authenticate, authorize(UserRole.ASSET_MANAGER), async (req, res) => {
+  const stats = await StatsService.getManagerStats(req.user!.id);
+  return res.status(200).json({ stats });
+});
+
 export default router;
