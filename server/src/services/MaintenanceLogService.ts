@@ -88,4 +88,18 @@ export const MaintenanceLogService = {
       ...(limit ? { take: limit } : {}),
     });
   },
+
+  async getSoHTrend(assetId: string) {
+    const logs = await logRepo().find({
+      where: { asset: { id: assetId } },
+      select: ["visitedAt", "stateOfHealthPercent", "logType"],
+      order: { visitedAt: "ASC" },
+      take: 20,
+    });
+    return logs.map(l => ({
+      date: new Date(l.visitedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
+      soh: Number(l.stateOfHealthPercent),
+      type: l.logType,
+    }));
+  },
 };

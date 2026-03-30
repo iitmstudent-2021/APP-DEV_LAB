@@ -12,6 +12,11 @@ export const MaintenanceLogController = {
     return res.status(200).json({ logs });
   },
 
+  async sohTrend(req: Request, res: Response) {
+    const trend = await MaintenanceLogService.getSoHTrend(req.params.assetId as string);
+    return res.status(200).json({ trend });
+  },
+
   async create(req: Request, res: Response) {
     try {
       if (!req.user) return res.status(401).json({ message: "Unauthorized" });

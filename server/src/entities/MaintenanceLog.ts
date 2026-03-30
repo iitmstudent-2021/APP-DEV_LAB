@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { BESSAsset } from "./BESSAsset";
 import { User } from "./User";
 
@@ -29,12 +29,14 @@ export class MaintenanceLog {
   @Column({ type: "text", nullable: true })
   notes!: string | null;
 
+  @Index()
   @Column({ type: "datetime" })
   visitedAt!: Date;
 
   @ManyToOne(() => User, (user) => user.maintenanceLogs, { nullable: false, onDelete: "CASCADE" })
   technician!: User;
 
+  @Index()
   @ManyToOne(() => BESSAsset, (asset) => asset.maintenanceLogs, { nullable: false, onDelete: "CASCADE" })
   asset!: BESSAsset;
 

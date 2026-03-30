@@ -36,6 +36,7 @@ router.delete("/:assetId/assignments/:technicianId", authenticate, authorize(Use
 
 // Maintenance logs for an asset
 router.get("/:assetId/maintenance-logs", authenticate, authorize(UserRole.ADMIN, UserRole.ASSET_MANAGER, UserRole.TECHNICIAN), MaintenanceLogController.list);
+router.get("/:assetId/maintenance-logs/soh-trend", authenticate, authorize(UserRole.ADMIN, UserRole.ASSET_MANAGER), MaintenanceLogController.sohTrend);
 router.post("/:assetId/maintenance-logs", authenticate, authorize(UserRole.TECHNICIAN), MaintenanceLogController.create);
 
 // Alerts for an asset

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
 import api from "../services/api";
 
 export default function AssetManagerDashboard({ user }) {
@@ -23,6 +24,9 @@ export default function AssetManagerDashboard({ user }) {
   const [alertForm, setAlertForm] = useState({ title: "", severity: "WARNING", description: "" });
   const [assetForm, setAssetForm] = useState({ name: "", siteName: "", category: "GRID_SCALE", capacityKwh: "", description: "" });
   const [showCreate, setShowCreate] = useState(false);
+  const [sohTrend, setSohTrend] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -40,11 +44,13 @@ export default function AssetManagerDashboard({ user }) {
   };
 
   const loadAssets = async (overrides = {}) => {
+    setLoading(true);
     try {
       const res = await api.get(`/assets?${buildParams(overrides)}`);
       setAssets(res.data.assets || []);
       setTotal(res.data.total || 0);
     } catch { flash("Failed to load assets", true); }
+    finally { setLoading(false); }
   };
 
   const loadManagerStats = async () => {
@@ -74,16 +80,21 @@ export default function AssetManagerDashboard({ user }) {
   const openAsset = async (asset) => {
     setSelectedAsset(asset);
     setAssignTechId("");
+    setSohTrend([]);
+    setDetailLoading(true);
     try {
-      const [asgRes, logRes, alrtRes] = await Promise.all([
+      const [asgRes, logRes, alrtRes, trendRes] = await Promise.all([
         api.get(`/assets/${asset.id}/assignments`),
         api.get(`/assets/${asset.id}/maintenance-logs`),
         api.get(`/assets/${asset.id}/alerts`),
+        api.get(`/assets/${asset.id}/maintenance-logs/soh-trend`),
       ]);
       setAssetAssignments(asgRes.data.assignments || []);
       setAssetLogs(logRes.data.logs || []);
       setAssetAlerts(alrtRes.data.alerts || []);
+      setSohTrend(trendRes.data.trend || []);
     } catch { flash("Failed to load asset details", true); }
+    finally { setDetailLoading(false); }
   };
 
   const handleCreateAsset = async (e) => {
@@ -270,7 +281,8 @@ export default function AssetManagerDashboard({ user }) {
               <button className="btn-secondary" onClick={clearFilters}>Clear</button>
             </div>
 
-            {assets.length === 0 && <p className="muted">No assets match current filters.</p>}
+            {loading && <p className="muted">Loading assets...</p>}
+            {!loading && assets.length === 0 && <p className="muted">No assets match current filters.</p>}
             <div className="card-grid">
               {assets.map(a => {
                 const soh = getLatestSoH(a.id);
@@ -331,6 +343,7 @@ export default function AssetManagerDashboard({ user }) {
               </form>
             </div>
 
+            {detailLoading && <p className="muted">Loading asset details...</p>}
             <div className="detail-sections">
               <div className="detail-section">
                 <h3>Assigned Technicians</h3>
@@ -353,6 +366,25 @@ export default function AssetManagerDashboard({ user }) {
 
               <div className="detail-section">
                 <h3>Maintenance Logs ({assetLogs.length})</h3>
+
+                {sohTrend.length > 1 && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <p className="muted small" style={{ marginBottom: "0.25rem" }}>SoH Trend (last 20 visits)</p>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={sohTrend} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                        <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                        <Tooltip formatter={(v) => [`${v}%`, "SoH"]} />
+                        <Legend />
+                        <ReferenceLine y={40} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: "40%", fontSize: 10, fill: "#f59e0b" }} />
+                        <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "20%", fontSize: 10, fill: "#ef4444" }} />
+                        <Line type="monotone" dataKey="soh" name="SoH %" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
                 {assetLogs.length === 0 && <p className="muted small">No logs yet.</p>}
                 {assetLogs.map(l => (
                   <div className="log-item" key={l.id}>

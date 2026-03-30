@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { BESSAsset } from "./BESSAsset";
 import { User } from "./User";
 
@@ -22,9 +22,11 @@ export class Alert {
   @Column({ type: "varchar", length: 140 })
   title!: string;
 
+  @Index()
   @Column({ type: "simple-enum", enum: AlertSeverity })
   severity!: AlertSeverity;
 
+  @Index()
   @Column({ type: "simple-enum", enum: AlertStatus, default: AlertStatus.OPEN })
   status!: AlertStatus;
 

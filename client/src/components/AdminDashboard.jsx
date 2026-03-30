@@ -29,6 +29,7 @@ export default function AdminDashboard({ user }) {
   const [page, setPage] = useState(1);
   const limit = 10;
 
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -49,11 +50,13 @@ export default function AdminDashboard({ user }) {
   };
 
   const loadAssets = async (overrides = {}) => {
+    setLoading(true);
     try {
       const res = await api.get(`/assets?${buildParams(overrides)}`);
       setAssets(res.data.assets || []);
       setTotal(res.data.total || 0);
     } catch { flash("Failed to load assets", true); }
+    finally { setLoading(false); }
   };
 
   const loadAlerts = async () => {
@@ -177,6 +180,7 @@ export default function AdminDashboard({ user }) {
         <nav className="dash-nav">
           <button className={activeTab === "assets" ? "active" : ""} onClick={() => { setActiveTab("assets"); setSelectedAsset(null); }}>Assets ({total})</button>
           <button className={activeTab === "charts" ? "active" : ""} onClick={() => { setActiveTab("charts"); setSelectedAsset(null); }}>Analytics</button>
+          <button className={activeTab === "activity" ? "active" : ""} onClick={() => { setActiveTab("activity"); setSelectedAsset(null); }}>Recent Activity</button>
           <button className={activeTab === "alerts" ? "active" : ""} onClick={() => { setActiveTab("alerts"); setSelectedAsset(null); }}>
             All Alerts {stats ? `(${stats.alerts.open} open)` : ""}
           </button>
@@ -296,7 +300,8 @@ export default function AdminDashboard({ user }) {
               <button className="btn-secondary" onClick={clearFilters}>Clear</button>
             </div>
 
-            {assets.length === 0 && <p className="muted">No assets match the current filters.</p>}
+            {loading && <p className="muted">Loading assets...</p>}
+            {!loading && assets.length === 0 && <p className="muted">No assets match the current filters.</p>}
             <div className="card-grid">
               {assets.map(a => (
                 <div className="asset-card clickable" key={a.id} onClick={() => openAsset(a)}>
@@ -402,6 +407,30 @@ export default function AdminDashboard({ user }) {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* RECENT ACTIVITY TAB */}
+        {activeTab === "activity" && (
+          <div>
+            <div className="section-header">
+              <h2>Recent Activity</h2>
+              <button className="btn-secondary" onClick={loadStats}>Refresh</button>
+            </div>
+            {(!stats?.recentActivity || stats.recentActivity.length === 0) && (
+              <p className="muted">No activity yet.</p>
+            )}
+            <div className="activity-feed">
+              {(stats?.recentActivity || []).map((item, i) => (
+                <div className="activity-item" key={i}>
+                  <span className={`activity-dot ${item.type === "alert" ? "dot-alert" : item.type === "log" ? "dot-log" : "dot-user"}`} />
+                  <div className="activity-body">
+                    <p className="small">{item.message}</p>
+                    <p className="muted small">{new Date(item.time).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

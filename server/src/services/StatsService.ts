@@ -80,12 +80,51 @@ export const StatsService = {
     );
     const assetsPerMonth = monthlyRaw.reverse();
 
+    // Recent activity feed
+    const [recentLogs, recentAlerts, recentUsers] = await Promise.all([
+      logRepo.find({
+        relations: { technician: true, asset: true },
+        order: { createdAt: "DESC" },
+        take: 5,
+      }),
+      alertRepo.find({
+        relations: { raisedBy: true, asset: true },
+        order: { createdAt: "DESC" },
+        take: 5,
+      }),
+      userRepo.find({
+        order: { createdAt: "DESC" },
+        take: 3,
+      }),
+    ]);
+
+    const recentActivity = [
+      ...recentLogs.map(l => ({
+        type: "log" as const,
+        message: `${l.technician?.fullName} logged maintenance on ${l.asset?.name} (SoH: ${l.stateOfHealthPercent}%)`,
+        time: l.createdAt,
+      })),
+      ...recentAlerts.map(a => ({
+        type: "alert" as const,
+        message: `${a.severity} alert "${a.title}" raised on ${a.asset?.name}`,
+        time: a.createdAt,
+      })),
+      ...recentUsers.map(u => ({
+        type: "user" as const,
+        message: `New user registered: ${u.fullName} (${u.role})`,
+        time: u.createdAt,
+      })),
+    ]
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 8);
+
     return {
       assets: { total: totalAssets, active: activeAssets, underMaintenance: underMaintenanceAssets, offline: offlineAssets, decommissioned: decommissionedAssets },
       alerts: { open: openAlerts, acknowledged: acknowledgedAlerts, resolved: resolvedAlerts, critical: criticalAlerts, warning: warningAlerts, info: infoAlerts },
       users: { technicians: totalTechnicians, managers: totalManagers },
       maintenanceLogs: { total: totalLogs },
       assetsPerMonth,
+      recentActivity,
     };
   },
 };

@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -45,6 +46,7 @@ export class BESSAsset {
   @Column({ type: "decimal", precision: 12, scale: 2 })
   capacityKwh!: number;
 
+  @Index()
   @Column({ type: "simple-enum", enum: AssetStatus, default: AssetStatus.ACTIVE })
   status!: AssetStatus;
 
@@ -54,6 +56,7 @@ export class BESSAsset {
   @Column({ type: "varchar", length: 255, nullable: true })
   imageUrl!: string | null;
 
+  @Index()
   @ManyToOne(() => User, (user) => user.ownedAssets, { nullable: false, onDelete: "CASCADE" })
   owner!: User;
 

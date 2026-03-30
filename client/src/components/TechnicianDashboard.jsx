@@ -17,6 +17,8 @@ export default function TechnicianDashboard({ user }) {
   const [alertForm, setAlertForm] = useState({ title: "", severity: "WARNING", description: "" });
   const [showLogForm, setShowLogForm] = useState(false);
   const [showAlertForm, setShowAlertForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -26,10 +28,12 @@ export default function TechnicianDashboard({ user }) {
   };
 
   const loadAssets = async () => {
+    setLoading(true);
     try {
       const res = await api.get("/assets");
       setAssets(res.data.assets || []);
     } catch { flash("Failed to load assets", true); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { loadAssets(); }, []);
@@ -38,6 +42,7 @@ export default function TechnicianDashboard({ user }) {
     setSelectedAsset(asset);
     setShowLogForm(false);
     setShowAlertForm(false);
+    setDetailLoading(true);
     try {
       const [logRes, alrtRes] = await Promise.all([
         api.get(`/assets/${asset.id}/maintenance-logs?limit=5`),
@@ -46,6 +51,7 @@ export default function TechnicianDashboard({ user }) {
       setAssetLogs(logRes.data.logs || []);
       setAssetAlerts(alrtRes.data.alerts || []);
     } catch { flash("Failed to load asset details", true); }
+    finally { setDetailLoading(false); }
   };
 
   const handleLogSubmit = async (e) => {
@@ -103,7 +109,8 @@ export default function TechnicianDashboard({ user }) {
               <h2>My Assigned Assets</h2>
               <button className="btn-secondary" onClick={loadAssets}>Refresh</button>
             </div>
-            {assets.length === 0 && (
+            {loading && <p className="muted">Loading assets...</p>}
+            {!loading && assets.length === 0 && (
               <div className="empty-state">
                 <p>No assets assigned to you yet.</p>
                 <p className="muted small">Contact your Asset Manager to get assigned to a site.</p>
@@ -130,6 +137,7 @@ export default function TechnicianDashboard({ user }) {
         {selectedAsset && (
           <div>
             <button className="btn-back" onClick={() => setSelectedAsset(null)}>← Back to assets</button>
+            {detailLoading && <p className="muted">Loading asset details...</p>}
             <h2>{selectedAsset.name}</h2>
             <p className="muted">{selectedAsset.siteName} · {selectedAsset.category} · {selectedAsset.capacityKwh} kWh · <span className={`badge ${selectedAsset.status === "ACTIVE" ? "badge-ok" : "badge-warning"}`}>{selectedAsset.status}</span></p>
 
