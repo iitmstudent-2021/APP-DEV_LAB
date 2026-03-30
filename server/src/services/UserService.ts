@@ -17,4 +17,11 @@ export const UserService = {
       order: { fullName: "ASC" },
     });
   },
+
+  async updateRole(userId: string, role: UserRole) {
+    const user = await userRepository().findOne({ where: { id: userId } });
+    if (!user) throw new Error("User not found");
+    user.role = role;
+    return userRepository().save(user);
+  },
 };

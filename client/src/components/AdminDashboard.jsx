@@ -475,12 +475,39 @@ export default function AdminDashboard({ user }) {
               <button className="btn-secondary" onClick={loadUsers}>Refresh</button>
             </div>
             <div className="users-table">
-              <div className="users-thead"><span>Name</span><span>Email</span><span>Role</span></div>
+              <div className="users-thead"><span>Name</span><span>Email</span><span>Role</span><span>Change Role</span></div>
               {users.map(u => (
                 <div className="users-row" key={u.id}>
                   <span>{u.fullName}</span>
                   <span className="muted small">{u.email}</span>
                   <span><span className={`badge ${u.role === "ADMIN" ? "badge-critical" : u.role === "ASSET_MANAGER" ? "badge-warning" : "badge-info"}`}>{u.role}</span></span>
+                  <span style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                    {u.id === user?.id
+                      ? <span className="muted small">(you)</span>
+                      : (
+                        <>
+                          <select
+                            defaultValue={u.role}
+                            id={`role-select-${u.id}`}
+                            style={{ fontSize: "0.8rem", padding: "2px 4px" }}
+                          >
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="ASSET_MANAGER">ASSET_MANAGER</option>
+                            <option value="TECHNICIAN">TECHNICIAN</option>
+                          </select>
+                          <button className="btn-sm" onClick={async () => {
+                            const sel = document.getElementById(`role-select-${u.id}`);
+                            const newRole = sel.value;
+                            if (newRole === u.role) return;
+                            try {
+                              await api.patch(`/users/${u.id}/role`, { role: newRole });
+                              flash(`${u.fullName} is now ${newRole}`);
+                              loadUsers(); loadStats();
+                            } catch (e) { flash(e.response?.data?.message || "Failed to update role", true); }
+                          }}>Save</button>
+                        </>
+                      )}
+                  </span>
                 </div>
               ))}
             </div>
