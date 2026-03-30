@@ -69,7 +69,11 @@ export default function AssetManagerDashboard({ user }) {
 
   useEffect(() => { loadAssets(); loadTechnicians(); loadManagerStats(); }, []);
 
-  const applyFilters = () => { setPage(1); loadAssets({ page: 1 }); setSelectedAsset(null); };
+  const applyFilters = () => {
+    setPage(1);
+    loadAssets({ status: filterStatus, category: filterCategory, search, sortBy, sortOrder, page: 1 });
+    setSelectedAsset(null);
+  };
   const clearFilters = () => {
     setFilterStatus(""); setFilterCategory(""); setSearch(""); setSortBy(""); setSortOrder("DESC"); setPage(1);
     loadAssets({ status: "", category: "", search: "", sortBy: "", sortOrder: "DESC", page: 1 });

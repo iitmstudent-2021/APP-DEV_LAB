@@ -72,8 +72,8 @@ export const StatsService = {
 
     // Monthly asset registration counts (last 6 months) using raw query for SQLite
     const monthlyRaw: { month: string; count: number }[] = await AppDataSource.query(
-      `SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
-       FROM bess_asset
+      `SELECT strftime('%Y-%m', createdAt) as month, COUNT(*) as count
+       FROM bess_assets
        GROUP BY month
        ORDER BY month DESC
        LIMIT 6`

@@ -83,7 +83,11 @@ export default function AdminDashboard({ user }) {
 
   useEffect(() => { loadAssets(); loadAlerts(); loadUsers(); loadStats(); }, []);
 
-  const applyFilters = () => { setPage(1); loadAssets({ page: 1 }); setSelectedAsset(null); };
+  const applyFilters = () => {
+    setPage(1);
+    loadAssets({ status: filterStatus, category: filterCategory, search, startDate, endDate, sortBy, sortOrder, page: 1 });
+    setSelectedAsset(null);
+  };
   const clearFilters = () => {
     setFilterStatus(""); setFilterCategory(""); setSearch("");
     setStartDate(""); setEndDate(""); setSortBy(""); setSortOrder("DESC");
