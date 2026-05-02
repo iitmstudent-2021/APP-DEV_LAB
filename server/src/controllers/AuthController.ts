@@ -21,7 +21,9 @@ export const AuthController = {
       const result = await AuthService.register({ fullName, email, password, role });
       return res.status(201).json(result);
     } catch (error) {
-      return res.status(400).json({ message: (error as Error).message });
+      const msg = (error as Error).message;
+      if (msg.includes("already exists")) return res.status(409).json({ message: msg });
+      return res.status(400).json({ message: msg });
     }
   },
 

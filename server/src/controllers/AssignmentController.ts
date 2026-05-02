@@ -27,6 +27,7 @@ export const AssignmentController = {
       return res.status(201).json({ assignment });
     } catch (error) {
       const msg = (error as Error).message;
+      if (msg.includes("already assigned")) return res.status(409).json({ message: msg });
       const status = msg.includes("not found") ? 404 : 400;
       return res.status(status).json({ message: msg });
     }

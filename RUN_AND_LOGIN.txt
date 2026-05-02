@@ -65,3 +65,7 @@ cd "/home/pankajmsah/APP DEV_LAB/fullstack-app/server" && npm run dev
 
 # Terminal 2
 cd "/home/pankajmsah/APP DEV_LAB/fullstack-app/client" && npm run dev
+
+The golden path in one line:
+
+Admin creates users → Manager creates assets & assigns technicians → Technician logs maintenance (triggers auto-alerts) → Manager resolves alerts → cycle repeats

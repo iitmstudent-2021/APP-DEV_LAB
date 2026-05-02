@@ -8,7 +8,13 @@ const isValidLogType = (v: unknown): v is MaintenanceLogType =>
 export const MaintenanceLogController = {
   async list(req: Request, res: Response) {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-    const logs = await MaintenanceLogService.listForAsset(req.params.assetId as string, limit);
+    const { logType, startDate, endDate } = req.query;
+    const filters = {
+      logType: isValidLogType(logType) ? (logType as MaintenanceLogType) : undefined,
+      startDate: typeof startDate === "string" && startDate ? startDate : undefined,
+      endDate: typeof endDate === "string" && endDate ? endDate : undefined,
+    };
+    const logs = await MaintenanceLogService.listForAsset(req.params.assetId as string, limit, filters);
     return res.status(200).json({ logs });
   },
 
@@ -30,6 +36,11 @@ export const MaintenanceLogController = {
 
       if (!isValidLogType(logType)) {
         return res.status(400).json({ message: "Invalid logType" });
+      }
+
+      const soh = Number(stateOfHealthPercent);
+      if (isNaN(soh) || soh < 0 || soh > 100) {
+        return res.status(400).json({ message: "stateOfHealthPercent must be a number between 0 and 100" });
       }
 
       const log = await MaintenanceLogService.create(assetId, req.user.id, {
