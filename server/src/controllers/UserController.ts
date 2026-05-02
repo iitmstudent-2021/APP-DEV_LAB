@@ -6,6 +6,21 @@ const isValidRole = (value: unknown): value is UserRole =>
   typeof value === "string" && Object.values(UserRole).includes(value as UserRole);
 
 export const UserController = {
+  async toggleActive(req: Request, res: Response) {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      const userId = req.params.userId as string;
+      if (userId === req.user.id) {
+        return res.status(400).json({ message: "You cannot deactivate your own account" });
+      }
+      const user = await UserService.toggleActive(userId);
+      return res.status(200).json({ user });
+    } catch (error) {
+      const msg = (error as Error).message;
+      return res.status(msg.includes("not found") ? 404 : 400).json({ message: msg });
+    }
+  },
+
   async list(req: Request, res: Response) {
     const { role } = req.query;
     const roleFilter = role && isValidRole(role) ? role : undefined;

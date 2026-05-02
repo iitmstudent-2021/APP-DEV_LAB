@@ -8,5 +8,6 @@ const router = Router();
 
 router.get("/", authenticate, authorize(UserRole.ADMIN, UserRole.ASSET_MANAGER), UserController.list);
 router.patch("/:userId/role", authenticate, authorize(UserRole.ADMIN), UserController.updateRole);
+router.patch("/:userId/active", authenticate, authorize(UserRole.ADMIN), UserController.toggleActive);
 
 export default router;

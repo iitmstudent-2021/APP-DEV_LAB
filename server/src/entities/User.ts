@@ -33,6 +33,9 @@ export class User {
   @Column({ type: "simple-enum", enum: UserRole })
   role!: UserRole;
 
+  @Column({ type: "boolean", default: true })
+  isActive!: boolean;
+
   @OneToMany(() => BESSAsset, (asset) => asset.owner)
   ownedAssets!: BESSAsset[];
 

@@ -69,6 +69,10 @@ export const AuthService = {
       throw new Error("Invalid email or password");
     }
 
+    if (!user.isActive) {
+      throw new Error("Account has been deactivated. Contact an administrator.");
+    }
+
     return {
       token: buildToken(user),
       user: {

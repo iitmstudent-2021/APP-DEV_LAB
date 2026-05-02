@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart, Bar, PieChart, Pie, Cell, Tooltip, XAxis, YAxis, ResponsiveContainer, Legend } from "recharts";
+import { BarChart, Bar, PieChart, Pie, Cell, Tooltip, XAxis, YAxis, ResponsiveContainer, Legend, LineChart, Line, CartesianGrid } from "recharts";
 import api from "../services/api";
 
 const PIE_COLORS = ["#22c55e", "#f59e0b", "#ef4444", "#94a3b8"];
@@ -11,12 +11,20 @@ export default function AdminDashboard({ user }) {
   const [users, setUsers] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [stats, setStats] = useState(null);
+  const [alertTrends, setAlertTrends] = useState([]);
+  const [sohOverview, setSohOverview] = useState([]);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [assignTechId, setAssignTechId] = useState("");
   const [assetAssignments, setAssetAssignments] = useState([]);
   const [assetLogs, setAssetLogs] = useState([]);
   const [assetAlerts, setAssetAlerts] = useState([]);
   const [activeTab, setActiveTab] = useState("assets");
+
+  // Alert filters
+  const [alertFilterSeverity, setAlertFilterSeverity] = useState("");
+  const [alertFilterStatus, setAlertFilterStatus] = useState("");
+  const [alertStartDate, setAlertStartDate] = useState("");
+  const [alertEndDate, setAlertEndDate] = useState("");
 
   // Filters + pagination + search + sort
   const [filterStatus, setFilterStatus] = useState("");
@@ -59,9 +67,12 @@ export default function AdminDashboard({ user }) {
     finally { setLoading(false); }
   };
 
-  const loadAlerts = async () => {
+  const loadAlerts = async (overrides = {}) => {
     try {
-      const res = await api.get("/alerts");
+      const p = { severity: alertFilterSeverity, status: alertFilterStatus, startDate: alertStartDate, endDate: alertEndDate, ...overrides };
+      const params = new URLSearchParams();
+      Object.entries(p).forEach(([k, v]) => { if (v) params.append(k, v); });
+      const res = await api.get(`/alerts?${params.toString()}`);
       setAlerts(res.data.alerts || []);
     } catch { flash("Failed to load alerts", true); }
   };
@@ -81,7 +92,21 @@ export default function AdminDashboard({ user }) {
     } catch { /* stats are non-critical */ }
   };
 
-  useEffect(() => { loadAssets(); loadAlerts(); loadUsers(); loadStats(); }, []);
+  const loadAlertTrends = async () => {
+    try {
+      const res = await api.get("/stats/alert-trends");
+      setAlertTrends(res.data.trends || []);
+    } catch { /* non-critical */ }
+  };
+
+  const loadSoHOverview = async () => {
+    try {
+      const res = await api.get("/stats/soh-overview");
+      setSohOverview(res.data.overview || []);
+    } catch { /* non-critical */ }
+  };
+
+  useEffect(() => { loadAssets(); loadAlerts(); loadUsers(); loadStats(); loadAlertTrends(); loadSoHOverview(); }, []);
 
   const applyFilters = () => {
     setPage(1);
@@ -228,37 +253,131 @@ export default function AdminDashboard({ user }) {
         )}
 
         {/* ANALYTICS TAB */}
-        {activeTab === "charts" && !selectedAsset && stats && (
+        {activeTab === "charts" && !selectedAsset && (
           <div>
-            <h2>Platform Analytics</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", marginTop: "1.5rem" }}>
+            <div className="section-header">
+              <h2>Platform Analytics</h2>
+              <button className="btn-secondary" onClick={() => { loadStats(); loadAlertTrends(); loadSoHOverview(); }}>Refresh</button>
+            </div>
+
+            {/* Row 1 — existing overview charts */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "1.25rem" }}>
               <div className="detail-section">
                 <h3>Assets by Status</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, value }) => `${name}: ${value}`}>
-                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {pieData.length === 0
+                  ? <p className="muted small">No assets yet.</p>
+                  : (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <PieChart>
+                        <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({ name, value }) => `${name}: ${value}`}>
+                          {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
               </div>
               <div className="detail-section">
                 <h3>Assets Registered (Last 6 Months)</h3>
                 {barData.length === 0
                   ? <p className="muted small">No data yet.</p>
                   : (
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={240}>
                       <BarChart data={barData}>
-                        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                        <YAxis allowDecimals={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                         <Tooltip />
                         <Bar dataKey="Assets" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
               </div>
+            </div>
+
+            {/* Row 2 — Alert Trends */}
+            <div className="detail-section" style={{ marginTop: "1.5rem" }}>
+              <h3>Alert Trends — Last 30 Days</h3>
+              {alertTrends.length === 0
+                ? <p className="muted small">No alerts raised in the last 30 days.</p>
+                : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={alertTrends} margin={{ top: 8, right: 24, left: -16, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        formatter={(value, name) => [value, name]}
+                        labelFormatter={label => `Date: ${label}`}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="CRITICAL" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="WARNING" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="INFO" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+            </div>
+
+            {/* Row 3 — SoH Portfolio Heatmap */}
+            <div className="detail-section" style={{ marginTop: "1.5rem" }}>
+              <h3>SoH Portfolio Heatmap</h3>
+              <p className="muted small" style={{ marginBottom: "0.75rem" }}>
+                Each tile shows the latest recorded State-of-Health. Sorted from most critical to healthiest.
+              </p>
+
+              {/* Legend */}
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem", fontSize: "0.8rem" }}>
+                {[
+                  { label: "≥ 60% — Healthy", bg: "#dcfce7", color: "#166534" },
+                  { label: "40–59% — Fair", bg: "#fef9c3", color: "#713f12" },
+                  { label: "20–39% — Poor", bg: "#ffedd5", color: "#7c2d12" },
+                  { label: "< 20% — Critical", bg: "#fee2e2", color: "#7f1d1d" },
+                  { label: "No data", bg: "#f1f5f9", color: "#64748b" },
+                ].map(({ label, bg, color }) => (
+                  <span key={label} style={{ background: bg, color, padding: "2px 10px", borderRadius: "6px", fontWeight: 600 }}>{label}</span>
+                ))}
+              </div>
+
+              {sohOverview.length === 0
+                ? <p className="muted small">No assets found.</p>
+                : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "0.75rem" }}>
+                    {sohOverview.map(a => {
+                      const soh = a.latestSoH;
+                      const tile = soh === null
+                        ? { bg: "#f1f5f9", color: "#64748b", label: "No data" }
+                        : soh >= 60
+                          ? { bg: "#dcfce7", color: "#166534", label: `${soh}%` }
+                          : soh >= 40
+                            ? { bg: "#fef9c3", color: "#713f12", label: `${soh}%` }
+                            : soh >= 20
+                              ? { bg: "#ffedd5", color: "#7c2d12", label: `${soh}%` }
+                              : { bg: "#fee2e2", color: "#7f1d1d", label: `${soh}%` };
+                      return (
+                        <div key={a.assetId} style={{
+                          background: tile.bg, color: tile.color,
+                          border: `1px solid ${tile.color}33`,
+                          borderRadius: "10px", padding: "0.75rem",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                        }}>
+                          <div style={{ fontWeight: 700, fontSize: "1.5rem", lineHeight: 1 }}>{tile.label}</div>
+                          <div style={{ fontWeight: 600, fontSize: "0.85rem", marginTop: "0.35rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.assetName}</div>
+                          <div style={{ fontSize: "0.75rem", opacity: 0.75, marginTop: "0.15rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.siteName}</div>
+                          <div style={{ fontSize: "0.72rem", marginTop: "0.4rem", opacity: 0.7 }}>
+                            <span className={`badge ${a.status === "ACTIVE" ? "badge-ok" : a.status === "UNDER_MAINTENANCE" ? "badge-warning" : "badge-critical"}`} style={{ fontSize: "0.68rem" }}>{a.status}</span>
+                          </div>
+                          {a.lastVisit && (
+                            <div style={{ fontSize: "0.7rem", marginTop: "0.3rem", opacity: 0.6 }}>
+                              Last visit: {new Date(a.lastVisit).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
             </div>
           </div>
         )}
@@ -446,7 +565,25 @@ export default function AdminDashboard({ user }) {
               <h2>All Alerts</h2>
               <button className="btn-secondary" onClick={() => { loadAlerts(); loadStats(); }}>Refresh</button>
             </div>
-            {alerts.length === 0 && <p className="muted">No alerts raised yet.</p>}
+            <div className="filter-bar" style={{ flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+              <select value={alertFilterSeverity} onChange={e => setAlertFilterSeverity(e.target.value)}>
+                <option value="">All Severities</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="WARNING">Warning</option>
+                <option value="INFO">Info</option>
+              </select>
+              <select value={alertFilterStatus} onChange={e => setAlertFilterStatus(e.target.value)}>
+                <option value="">All Statuses</option>
+                <option value="OPEN">Open</option>
+                <option value="ACKNOWLEDGED">Acknowledged</option>
+                <option value="RESOLVED">Resolved</option>
+              </select>
+              <input type="date" value={alertStartDate} onChange={e => setAlertStartDate(e.target.value)} title="Raised from" />
+              <input type="date" value={alertEndDate} onChange={e => setAlertEndDate(e.target.value)} title="Raised until" />
+              <button className="btn-primary" onClick={() => loadAlerts({ severity: alertFilterSeverity, status: alertFilterStatus, startDate: alertStartDate, endDate: alertEndDate })}>Filter</button>
+              <button className="btn-secondary" onClick={() => { setAlertFilterSeverity(""); setAlertFilterStatus(""); setAlertStartDate(""); setAlertEndDate(""); loadAlerts({ severity: "", status: "", startDate: "", endDate: "" }); }}>Clear</button>
+            </div>
+            {alerts.length === 0 && <p className="muted">No alerts match the current filters.</p>}
             {alerts.map(a => (
               <div className="alert-item" key={a.id}>
                 <div className="alert-header">
@@ -475,13 +612,16 @@ export default function AdminDashboard({ user }) {
               <button className="btn-secondary" onClick={loadUsers}>Refresh</button>
             </div>
             <div className="users-table">
-              <div className="users-thead"><span>Name</span><span>Email</span><span>Role</span><span>Change Role</span></div>
+              <div className="users-thead"><span>Name</span><span>Email</span><span>Role</span><span>Actions</span></div>
               {users.map(u => (
-                <div className="users-row" key={u.id}>
-                  <span>{u.fullName}</span>
+                <div className="users-row" key={u.id} style={{ opacity: u.isActive === false ? 0.5 : 1 }}>
+                  <span>
+                    {u.fullName}
+                    {u.isActive === false && <span className="badge badge-critical" style={{ marginLeft: "0.4rem", fontSize: "0.7rem" }}>Deactivated</span>}
+                  </span>
                   <span className="muted small">{u.email}</span>
                   <span><span className={`badge ${u.role === "ADMIN" ? "badge-critical" : u.role === "ASSET_MANAGER" ? "badge-warning" : "badge-info"}`}>{u.role}</span></span>
-                  <span style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                  <span style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
                     {u.id === user?.id
                       ? <span className="muted small">(you)</span>
                       : (
@@ -490,12 +630,13 @@ export default function AdminDashboard({ user }) {
                             defaultValue={u.role}
                             id={`role-select-${u.id}`}
                             style={{ fontSize: "0.8rem", padding: "2px 4px" }}
+                            disabled={u.isActive === false}
                           >
                             <option value="ADMIN">ADMIN</option>
                             <option value="ASSET_MANAGER">ASSET_MANAGER</option>
                             <option value="TECHNICIAN">TECHNICIAN</option>
                           </select>
-                          <button className="btn-sm" onClick={async () => {
+                          <button className="btn-sm" disabled={u.isActive === false} onClick={async () => {
                             const sel = document.getElementById(`role-select-${u.id}`);
                             const newRole = sel.value;
                             if (newRole === u.role) return;
@@ -505,6 +646,18 @@ export default function AdminDashboard({ user }) {
                               loadUsers(); loadStats();
                             } catch (e) { flash(e.response?.data?.message || "Failed to update role", true); }
                           }}>Save</button>
+                          <button
+                            className={u.isActive === false ? "btn-sm btn-ok" : "btn-danger-sm"}
+                            onClick={async () => {
+                              try {
+                                await api.patch(`/users/${u.id}/active`);
+                                flash(`${u.fullName} ${u.isActive === false ? "reactivated" : "deactivated"}`);
+                                loadUsers();
+                              } catch (e) { flash(e.response?.data?.message || "Failed to update status", true); }
+                            }}
+                          >
+                            {u.isActive === false ? "Reactivate" : "Deactivate"}
+                          </button>
                         </>
                       )}
                   </span>

@@ -20,9 +20,12 @@ export default function AssetManagerDashboard({ user }) {
   const [assetAssignments, setAssetAssignments] = useState([]);
   const [assetLogs, setAssetLogs] = useState([]);
   const [assetAlerts, setAssetAlerts] = useState([]);
+  const [logFilterType, setLogFilterType] = useState("");
+  const [logStartDate, setLogStartDate] = useState("");
+  const [logEndDate, setLogEndDate] = useState("");
   const [assignTechId, setAssignTechId] = useState("");
   const [alertForm, setAlertForm] = useState({ title: "", severity: "WARNING", description: "" });
-  const [assetForm, setAssetForm] = useState({ name: "", siteName: "", category: "GRID_SCALE", capacityKwh: "", description: "" });
+  const [assetForm, setAssetForm] = useState({ name: "", siteName: "", category: "GRID_SCALE", capacityKwh: "", description: "", installationDate: "" });
   const [showCreate, setShowCreate] = useState(false);
   const [sohTrend, setSohTrend] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -81,22 +84,30 @@ export default function AssetManagerDashboard({ user }) {
   };
   const goPage = (newPage) => { setPage(newPage); loadAssets({ page: newPage }); };
 
+  const loadLogs = async (assetId, overrides = {}) => {
+    const p = { logType: logFilterType, startDate: logStartDate, endDate: logEndDate, ...overrides };
+    const params = new URLSearchParams();
+    Object.entries(p).forEach(([k, v]) => { if (v) params.append(k, v); });
+    const res = await api.get(`/assets/${assetId}/maintenance-logs?${params.toString()}`);
+    setAssetLogs(res.data.logs || []);
+  };
+
   const openAsset = async (asset) => {
     setSelectedAsset(asset);
     setAssignTechId("");
     setSohTrend([]);
+    setLogFilterType(""); setLogStartDate(""); setLogEndDate("");
     setDetailLoading(true);
     try {
-      const [asgRes, logRes, alrtRes, trendRes] = await Promise.all([
+      const [asgRes, alrtRes, trendRes] = await Promise.all([
         api.get(`/assets/${asset.id}/assignments`),
-        api.get(`/assets/${asset.id}/maintenance-logs`),
         api.get(`/assets/${asset.id}/alerts`),
         api.get(`/assets/${asset.id}/maintenance-logs/soh-trend`),
       ]);
       setAssetAssignments(asgRes.data.assignments || []);
-      setAssetLogs(logRes.data.logs || []);
       setAssetAlerts(alrtRes.data.alerts || []);
       setSohTrend(trendRes.data.trend || []);
+      await loadLogs(asset.id, {});
     } catch { flash("Failed to load asset details", true); }
     finally { setDetailLoading(false); }
   };
@@ -104,8 +115,12 @@ export default function AssetManagerDashboard({ user }) {
   const handleCreateAsset = async (e) => {
     e.preventDefault();
     try {
-      await api.post("/assets", { ...assetForm, capacityKwh: Number(assetForm.capacityKwh) });
-      setAssetForm({ name: "", siteName: "", category: "GRID_SCALE", capacityKwh: "", description: "" });
+      await api.post("/assets", {
+        ...assetForm,
+        capacityKwh: Number(assetForm.capacityKwh),
+        installationDate: assetForm.installationDate || undefined,
+      });
+      setAssetForm({ name: "", siteName: "", category: "GRID_SCALE", capacityKwh: "", description: "", installationDate: "" });
       setShowCreate(false);
       flash("Asset created");
       loadAssets(); loadManagerStats();
@@ -243,6 +258,10 @@ export default function AssetManagerDashboard({ user }) {
               </select>
               <input type="number" placeholder="Capacity (kWh)" value={assetForm.capacityKwh} onChange={e => setAssetForm(p => ({ ...p, capacityKwh: e.target.value }))} required />
               <textarea placeholder="Description (optional)" value={assetForm.description} onChange={e => setAssetForm(p => ({ ...p, description: e.target.value }))} rows={3} />
+              <div>
+                <label className="muted small">Installation Date (optional)</label>
+                <input type="date" value={assetForm.installationDate} onChange={e => setAssetForm(p => ({ ...p, installationDate: e.target.value }))} />
+              </div>
               <button type="submit" className="btn-primary">Create Asset</button>
             </form>
           </div>
@@ -338,7 +357,7 @@ export default function AssetManagerDashboard({ user }) {
             {/* Site Image */}
             <div style={{ margin: "1rem 0" }}>
               {selectedAsset.imageUrl && (
-                <img src={`http://localhost:3000${selectedAsset.imageUrl}`} alt="Site"
+                <img src={`http://localhost:5000${selectedAsset.imageUrl}`} alt="Site"
                   style={{ maxHeight: "180px", borderRadius: "8px", marginBottom: "0.5rem", display: "block" }} />
               )}
               <form onSubmit={handleImageUpload} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
@@ -369,7 +388,22 @@ export default function AssetManagerDashboard({ user }) {
               </div>
 
               <div className="detail-section">
-                <h3>Maintenance Logs ({assetLogs.length})</h3>
+                <div className="section-header">
+                  <h3>Maintenance Logs ({assetLogs.length})</h3>
+                </div>
+                <div className="filter-bar" style={{ flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                  <select value={logFilterType} onChange={e => setLogFilterType(e.target.value)}>
+                    <option value="">All Types</option>
+                    <option value="ROUTINE">Routine</option>
+                    <option value="INSPECTION">Inspection</option>
+                    <option value="REPAIR">Repair</option>
+                    <option value="EMERGENCY">Emergency</option>
+                  </select>
+                  <input type="date" value={logStartDate} onChange={e => setLogStartDate(e.target.value)} title="Visit date from" />
+                  <input type="date" value={logEndDate} onChange={e => setLogEndDate(e.target.value)} title="Visit date until" />
+                  <button className="btn-primary" onClick={() => loadLogs(selectedAsset.id, { logType: logFilterType, startDate: logStartDate, endDate: logEndDate })}>Filter</button>
+                  <button className="btn-secondary" onClick={() => { setLogFilterType(""); setLogStartDate(""); setLogEndDate(""); loadLogs(selectedAsset.id, { logType: "", startDate: "", endDate: "" }); }}>Clear</button>
+                </div>
 
                 {sohTrend.length > 1 && (
                   <div style={{ marginBottom: "1rem" }}>

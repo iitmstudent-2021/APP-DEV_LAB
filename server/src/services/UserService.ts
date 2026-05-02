@@ -8,12 +8,12 @@ export const UserService = {
     if (role) {
       return userRepository().find({
         where: { role },
-        select: { id: true, fullName: true, email: true, role: true },
+        select: { id: true, fullName: true, email: true, role: true, isActive: true },
         order: { fullName: "ASC" },
       });
     }
     return userRepository().find({
-      select: { id: true, fullName: true, email: true, role: true },
+      select: { id: true, fullName: true, email: true, role: true, isActive: true },
       order: { fullName: "ASC" },
     });
   },
@@ -22,6 +22,13 @@ export const UserService = {
     const user = await userRepository().findOne({ where: { id: userId } });
     if (!user) throw new Error("User not found");
     user.role = role;
+    return userRepository().save(user);
+  },
+
+  async toggleActive(userId: string) {
+    const user = await userRepository().findOne({ where: { id: userId } });
+    if (!user) throw new Error("User not found");
+    user.isActive = !user.isActive;
     return userRepository().save(user);
   },
 };

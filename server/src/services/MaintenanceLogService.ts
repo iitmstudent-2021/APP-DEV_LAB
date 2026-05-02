@@ -14,6 +14,12 @@ interface CreateLogInput {
   visitedAt: string;
 }
 
+interface LogFilters {
+  logType?: MaintenanceLogType;
+  startDate?: string;
+  endDate?: string;
+}
+
 const logRepo = () => AppDataSource.getRepository(MaintenanceLog);
 const assetRepo = () => AppDataSource.getRepository(BESSAsset);
 const userRepo = () => AppDataSource.getRepository(User);
@@ -80,13 +86,20 @@ export const MaintenanceLogService = {
     return saved;
   },
 
-  async listForAsset(assetId: string, limit?: number) {
-    return logRepo().find({
-      where: { asset: { id: assetId } },
-      relations: { technician: true },
-      order: { visitedAt: "DESC" },
-      ...(limit ? { take: limit } : {}),
-    });
+  async listForAsset(assetId: string, limit?: number, filters?: LogFilters) {
+    const qb = logRepo()
+      .createQueryBuilder("log")
+      .leftJoinAndSelect("log.technician", "technician")
+      .where("log.asset = :assetId", { assetId });
+
+    if (filters?.logType) qb.andWhere("log.logType = :logType", { logType: filters.logType });
+    if (filters?.startDate) qb.andWhere("log.visitedAt >= :startDate", { startDate: new Date(filters.startDate) });
+    if (filters?.endDate) qb.andWhere("log.visitedAt <= :endDate", { endDate: new Date(filters.endDate) });
+
+    qb.orderBy("log.visitedAt", "DESC");
+    if (limit) qb.take(limit);
+
+    return qb.getMany();
   },
 
   async getSoHTrend(assetId: string) {

@@ -10,6 +10,13 @@ interface CreateAlertInput {
   description?: string;
 }
 
+interface AlertFilters {
+  severity?: AlertSeverity;
+  status?: AlertStatus;
+  startDate?: string;
+  endDate?: string;
+}
+
 const alertRepo = () => AppDataSource.getRepository(Alert);
 const assetRepo = () => AppDataSource.getRepository(BESSAsset);
 const userRepo = () => AppDataSource.getRepository(User);
@@ -64,16 +71,30 @@ export const AlertService = {
     });
   },
 
-  async listAll() {
-    return alertRepo().find({
-      relations: { raisedBy: true, asset: true },
-      order: { raisedAt: "DESC" },
-    });
+  async listAll(filters?: AlertFilters) {
+    const qb = alertRepo()
+      .createQueryBuilder("alert")
+      .leftJoinAndSelect("alert.raisedBy", "raisedBy")
+      .leftJoinAndSelect("alert.asset", "asset");
+
+    if (filters?.severity) qb.andWhere("alert.severity = :severity", { severity: filters.severity });
+    if (filters?.status) qb.andWhere("alert.status = :status", { status: filters.status });
+    if (filters?.startDate) qb.andWhere("alert.raisedAt >= :startDate", { startDate: new Date(filters.startDate) });
+    if (filters?.endDate) qb.andWhere("alert.raisedAt <= :endDate", { endDate: new Date(filters.endDate) });
+
+    return qb.orderBy("alert.raisedAt", "DESC").getMany();
   },
 
-  async updateStatus(alertId: string, status: AlertStatus) {
-    const alert = await alertRepo().findOne({ where: { id: alertId } });
+  async updateStatus(alertId: string, status: AlertStatus, requesterId: string, requesterRole: UserRole) {
+    const alert = await alertRepo().findOne({
+      where: { id: alertId },
+      relations: { asset: { owner: true } },
+    });
     if (!alert) throw new Error("Alert not found");
+
+    if (requesterRole === UserRole.ASSET_MANAGER && alert.asset.owner.id !== requesterId) {
+      throw new Error("You can only update alerts on your own assets");
+    }
 
     alert.status = status;
     if (status === AlertStatus.RESOLVED) {

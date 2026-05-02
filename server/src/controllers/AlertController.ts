@@ -15,8 +15,15 @@ export const AlertController = {
     return res.status(200).json({ alerts });
   },
 
-  async listAll(_req: Request, res: Response) {
-    const alerts = await AlertService.listAll();
+  async listAll(req: Request, res: Response) {
+    const { severity, status, startDate, endDate } = req.query;
+    const filters = {
+      severity: isValidSeverity(severity) ? (severity as AlertSeverity) : undefined,
+      status: isValidStatus(status) ? (status as AlertStatus) : undefined,
+      startDate: typeof startDate === "string" && startDate ? startDate : undefined,
+      endDate: typeof endDate === "string" && endDate ? endDate : undefined,
+    };
+    const alerts = await AlertService.listAll(filters);
     return res.status(200).json({ alerts });
   },
 
@@ -60,11 +67,13 @@ export const AlertController = {
         return res.status(400).json({ message: "Invalid status. Use OPEN, ACKNOWLEDGED, or RESOLVED" });
       }
 
-      const alert = await AlertService.updateStatus(alertId, status);
+      const alert = await AlertService.updateStatus(alertId, status, req.user.id, req.user.role as UserRole);
       return res.status(200).json({ alert });
     } catch (error) {
       const msg = (error as Error).message;
-      return res.status(msg.includes("not found") ? 404 : 400).json({ message: msg });
+      if (msg.includes("not found")) return res.status(404).json({ message: msg });
+      if (msg.includes("own assets")) return res.status(403).json({ message: msg });
+      return res.status(400).json({ message: msg });
     }
   },
 };
