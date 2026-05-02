@@ -4,7 +4,69 @@ import { AssetStatus, BESSAsset } from "../entities/BESSAsset";
 import { MaintenanceLog } from "../entities/MaintenanceLog";
 import { User, UserRole } from "../entities/User";
 
+interface AlertTrendPoint {
+  date: string;
+  CRITICAL: number;
+  WARNING: number;
+  INFO: number;
+}
+
 export const StatsService = {
+  async getAlertTrends() {
+    const raw: { date: string; severity: string; count: number }[] = await AppDataSource.query(
+      `SELECT strftime('%Y-%m-%d', raisedAt) as date, severity, COUNT(*) as count
+       FROM alerts
+       WHERE raisedAt >= date('now', '-30 days')
+       GROUP BY date, severity
+       ORDER BY date ASC`
+    );
+
+    const dateMap: Record<string, AlertTrendPoint> = {};
+    for (const row of raw) {
+      if (!dateMap[row.date]) {
+        dateMap[row.date] = { date: row.date, CRITICAL: 0, WARNING: 0, INFO: 0 };
+      }
+      const point = dateMap[row.date];
+      if (row.severity === "CRITICAL") point.CRITICAL = Number(row.count);
+      else if (row.severity === "WARNING") point.WARNING = Number(row.count);
+      else if (row.severity === "INFO") point.INFO = Number(row.count);
+    }
+
+    return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+  },
+
+  async getSoHOverview() {
+    const assetRepo = AppDataSource.getRepository(BESSAsset);
+    const logRepo = AppDataSource.getRepository(MaintenanceLog);
+
+    const assets = await assetRepo.find({ relations: { owner: true } });
+
+    const result = await Promise.all(
+      assets.map(async (asset) => {
+        const latestLog = await logRepo.findOne({
+          where: { asset: { id: asset.id } },
+          order: { visitedAt: "DESC" },
+        });
+        return {
+          assetId: asset.id,
+          assetName: asset.name,
+          siteName: asset.siteName,
+          category: asset.category,
+          status: asset.status,
+          ownerName: asset.owner?.fullName ?? "—",
+          latestSoH: latestLog ? Number(latestLog.stateOfHealthPercent) : null,
+          lastVisit: latestLog?.visitedAt ?? null,
+        };
+      })
+    );
+
+    return result.sort((a, b) => {
+      if (a.latestSoH === null) return 1;
+      if (b.latestSoH === null) return -1;
+      return a.latestSoH - b.latestSoH;
+    });
+  },
+
   async getManagerStats(managerId: string) {
     const assetRepo = AppDataSource.getRepository(BESSAsset);
     const logRepo = AppDataSource.getRepository(MaintenanceLog);
