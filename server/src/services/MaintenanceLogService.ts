@@ -105,7 +105,6 @@ export const MaintenanceLogService = {
   async getSoHTrend(assetId: string) {
     const logs = await logRepo().find({
       where: { asset: { id: assetId } },
-      select: ["visitedAt", "stateOfHealthPercent", "logType"],
       order: { visitedAt: "ASC" },
       take: 20,
     });
