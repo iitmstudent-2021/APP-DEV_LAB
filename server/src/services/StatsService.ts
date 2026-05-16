@@ -14,10 +14,10 @@ interface AlertTrendPoint {
 export const StatsService = {
   async getAlertTrends() {
     const raw: { date: string; severity: string; count: number }[] = await AppDataSource.query(
-      `SELECT strftime('%Y-%m-%d', raisedAt) as date, severity, COUNT(*) as count
+      `SELECT TO_CHAR("raisedAt", 'YYYY-MM-DD') as date, severity, COUNT(*) as count
        FROM alerts
-       WHERE raisedAt >= date('now', '-30 days')
-       GROUP BY date, severity
+       WHERE "raisedAt" >= NOW() - INTERVAL '30 days'
+       GROUP BY TO_CHAR("raisedAt", 'YYYY-MM-DD'), severity
        ORDER BY date ASC`
     );
 
@@ -134,9 +134,9 @@ export const StatsService = {
 
     // Monthly asset registration counts (last 6 months) using raw query for SQLite
     const monthlyRaw: { month: string; count: number }[] = await AppDataSource.query(
-      `SELECT strftime('%Y-%m', createdAt) as month, COUNT(*) as count
+      `SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
        FROM bess_assets
-       GROUP BY month
+       GROUP BY TO_CHAR("createdAt", 'YYYY-MM')
        ORDER BY month DESC
        LIMIT 6`
     );

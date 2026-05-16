@@ -69,3 +69,127 @@ cd "/home/pankajmsah/APP DEV_LAB/fullstack-app/client" && npm run dev
 The golden path in one line:
 
 Admin creates users → Manager creates assets & assigns technicians → Technician logs maintenance (triggers auto-alerts) → Manager resolves alerts → cycle repeats
+
+
+Asset 1
+
+Name: Mumbai Grid Storage Unit
+Site: Dharavi Industrial Zone
+Category: Grid Scale
+Capacity: 2000
+Description: Primary grid stabilization unit for western Mumbai grid
+Installation Date: 15-01-2025
+Asset 2
+
+Name: Pune Commercial Hub BESS
+Site: Hinjewadi IT Park
+Category: Commercial
+Capacity: 800
+Description: Backup power storage for IT park operations
+Installation Date: 20-03-2025
+Asset 3
+
+Name: Chennai Residential Block R1
+Site: OMR Housing Complex
+Category: Residential
+Capacity: 150
+Description: Rooftop solar integrated storage for residential block
+Installation Date: 10-06-2025
+Asset 4
+
+Name: Bangalore Solar Storage Node
+Site: Electronic City Phase 2
+Category: Grid Scale
+Capacity: 5000
+Description: Large scale storage for renewable energy integration
+Installation Date: 01-09-2025
+Asset 5
+
+Name: Delhi Metro Backup Unit
+Site: Kashmere Gate Metro Depot
+Category: Commercial
+Capacity: 3500
+Description: Emergency backup storage for metro operations
+Installation Date: 12-11-2025
+
+
+
+Log 1 — Healthy reading:
+
+Log Type: ROUTINE
+SoH: 72
+Temperature: 38
+Notes: All modules functioning normally. Routine quarterly check completed.
+Visit Date: 2025-03-15
+Log 2 — Warning zone:
+
+Log Type: INSPECTION
+SoH: 38
+Temperature: 44
+Notes: Capacity degradation observed in Module A. Recommend follow-up in 2 weeks.
+Visit Date: 2025-07-20
+Log 3 — Critical (most dramatic for demo):
+
+Log Type: EMERGENCY
+SoH: 15
+Temperature: 52
+Notes: Critical failure. Module B non-responsive. Emergency shutdown initiated.
+Visit Date: 2025-11-10
+
+
+3. Raise Alerts
+Alert 1 — INFO:
+
+Title: Scheduled quarterly inspection due
+Severity: INFO
+Description: Q2 inspection window approaching for Mumbai grid unit
+Alert 2 — WARNING:
+
+Title: Battery temperature elevated
+Severity: WARNING
+Description: Temperature reading at 48°C, above normal operating range of 40°C
+Alert 3 — CRITICAL (do this last — most impressive):
+
+Title: Cell failure detected in Module B
+Severity: CRITICAL
+Description: Module B showing zero output — immediate shutdown and inspection required
+
+
+Log Type: Routine
+Description: Quarterly inspection completed. All cells functioning normally.
+SoH: 72
+Temperature: 37
+Notes: No anomalies detected. Next inspection due in 3 months.
+Visit Date: today's date
+Click Submit Log
+
+
+Log Type: Emergency
+Description: Sudden capacity drop detected across all modules
+SoH: 15
+Temperature: 55
+Notes: Emergency shutdown initiated. Requires immediate inspection.
+Click Submit Log 
+
+Title: Unusual vibration in battery rack
+Severity: WARNING
+Description: Vibration detected in rack 3 during routine visit. May indicate loose mounting.
+Click Raise Alert
+
+
+
+Alert 1 — INFO (safe, no status change):
+
+Title: Scheduled maintenance reminder
+Severity: INFO
+Description: Annual battery health check due next week for this unit
+Alert 2 — WARNING (moderate):
+
+Title: Unusual vibration in battery rack
+Severity: WARNING
+Description: Vibration detected in rack 3 during routine visit. May indicate loose mounting bracket.
+Alert 3 — CRITICAL (most impressive for demo):
+
+Title: Thermal runaway risk detected
+Severity: CRITICAL
+Description: Cell temperature exceeded 65°C in module B. Risk of thermal runaway. Immediate shutdown recommended.

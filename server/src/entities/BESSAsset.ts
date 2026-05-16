@@ -50,7 +50,7 @@ export class BESSAsset {
   @Column({ type: "simple-enum", enum: AssetStatus, default: AssetStatus.ACTIVE })
   status!: AssetStatus;
 
-  @Column({ type: "datetime", nullable: true })
+  @Column({ type: "timestamp", nullable: true })
   installationDate!: Date | null;
 
   @Column({ type: "varchar", length: 255, nullable: true })

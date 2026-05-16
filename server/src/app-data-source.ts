@@ -31,5 +31,8 @@ export const AppDataSource =
         username: process.env.DB_USERNAME || "postgres",
         password: process.env.DB_PASSWORD || "postgres",
         database: process.env.DB_NAME || "bess_portal",
+        ssl: process.env.DB_HOST?.includes("neon.tech")
+          ? { rejectUnauthorized: false }
+          : false,
         ...shared,
       });

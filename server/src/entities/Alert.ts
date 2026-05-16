@@ -33,10 +33,10 @@ export class Alert {
   @Column({ type: "text", nullable: true })
   description!: string | null;
 
-  @Column({ type: "datetime" })
+  @Column({ type: "timestamp" })
   raisedAt!: Date;
 
-  @Column({ type: "datetime", nullable: true })
+  @Column({ type: "timestamp", nullable: true })
   resolvedAt!: Date | null;
 
   @ManyToOne(() => User, (user) => user.raisedAlerts, { nullable: false, onDelete: "CASCADE" })

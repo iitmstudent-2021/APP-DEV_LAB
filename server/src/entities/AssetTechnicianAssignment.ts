@@ -14,7 +14,7 @@ export class AssetTechnicianAssignment {
   @ManyToOne(() => User, { nullable: false, onDelete: "CASCADE" })
   technician!: User;
 
-  @Column({ type: "datetime", default: () => "CURRENT_TIMESTAMP" })
+  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   assignedAt!: Date;
 
   @CreateDateColumn()

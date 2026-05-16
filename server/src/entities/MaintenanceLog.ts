@@ -30,7 +30,7 @@ export class MaintenanceLog {
   notes!: string | null;
 
   @Index()
-  @Column({ type: "datetime" })
+  @Column({ type: "timestamp" })
   visitedAt!: Date;
 
   @ManyToOne(() => User, (user) => user.maintenanceLogs, { nullable: false, onDelete: "CASCADE" })
