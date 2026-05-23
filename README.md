@@ -6,15 +6,80 @@ A full-stack web application for managing BESS assets, technician assignments, m
 
 ---
 
+## Live Demo
+
+| Service | URL |
+|---|---|
+| **Frontend (App)** | https://bess-portal-frontend.onrender.com |
+| **Backend API** | https://bess-portal-backend.onrender.com/api |
+
+> The free-tier backend spins down after inactivity. First request may take **30–60 seconds** to wake up — wait and retry if the login hangs.
+
+### Demo Credentials
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | admin@bess.com | Admin@123 |
+| Asset Manager | manager1@bess.com | Manager1@bess |
+| Technician | arjun.tech@bess.com | Arjun@bess1 |
+
+---
+
+## How to Use the App
+
+### Golden Path (full demo flow)
+
+```
+Admin creates users → Manager creates assets & assigns technicians
+→ Technician logs maintenance (triggers auto-alerts)
+→ Manager acknowledges / resolves alerts → cycle repeats
+```
+
+### Step-by-step
+
+**1. Login as Admin**
+- Go to https://bess-portal-frontend.onrender.com
+- Login with `admin@bess.com` / `Admin@123`
+- Admin dashboard shows global analytics: asset status, alert trends, SoH heatmap
+
+**2. Login as Asset Manager**
+- Login with `manager1@bess.com` / `Manager1@bess`
+- Click **Add Asset** to register a BESS unit (name, site, category, capacity)
+- Upload a site image for the asset
+- Go to the asset → **Assignments** → assign a technician
+
+**3. Login as Technician**
+- Login with `arjun.tech@bess.com` / `Arjun@bess1`
+- Only assigned assets are visible
+- Click an asset → **Submit Maintenance Log**
+  - Set SoH below 20% to trigger an automatic **CRITICAL** alert and flip status to `UNDER_MAINTENANCE`
+  - Set SoH below 40% to trigger an automatic **WARNING** alert
+
+**4. Back as Manager — handle alerts**
+- Go to the asset → **Alerts** tab
+- Click **Acknowledge** on an open alert (status: OPEN → ACKNOWLEDGED)
+- Click **Resolve** once fixed (status: ACKNOWLEDGED → RESOLVED)
+- A resolved critical alert unlocks the ability to set the asset back to `ACTIVE`
+
+**5. Admin analytics**
+- Switch to Admin → **Analytics** tab to see:
+  - Asset status distribution (pie chart)
+  - Monthly asset registrations (bar chart)
+  - Alert trends last 30 days (line chart by severity)
+  - SoH portfolio heatmap (all assets ranked by health)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Backend | Node.js 20, Express 5, TypeScript, TypeORM |
-| Database | SQLite (development) / PostgreSQL (production) |
-| Auth | JWT (stateless, 12h expiry), RBAC middleware |
 | Frontend | React 18, Vite, Recharts |
+| Backend | Node.js 20, Express 5, TypeScript, TypeORM |
+| Database | Neon PostgreSQL (cloud, AWS Singapore) |
+| Auth | JWT (stateless, 12h expiry), RBAC middleware |
 | File Upload | Multer (images, 5 MB limit) |
+| Deployment | Render.com (Web Service + Static Site) |
 
 ---
 
@@ -39,7 +104,7 @@ uploads/         Multer disk storage (site images)
 
 ---
 
-## Setup & Running Locally
+## Running Locally
 
 ### Prerequisites
 - Node.js >= 18
@@ -50,7 +115,7 @@ uploads/         Multer disk storage (site images)
 ```bash
 cd server
 npm install
-cp .env.example .env   # already pre-filled for SQLite dev
+cp .env.example .env   # edit DB_TYPE=sqlite for local SQLite dev
 npm run dev            # starts on http://localhost:5000
 ```
 
@@ -64,46 +129,24 @@ npm run dev            # starts on http://localhost:5173
 
 Open http://localhost:5173 in your browser.
 
-> See `RUN_AND_LOGIN.txt` for full credentials and quick-start commands.
+> See `RUN_AND_LOGIN.txt` for full credentials and sample data for demos.
 
 ---
 
-## Test Credentials
+## Deployment
 
-| Role | Email | Password |
+The app is deployed on **Render.com**:
+
+| Service | Type | Platform |
 |---|---|---|
-| Admin | admin@bess.com | Admin@123 |
-| Asset Manager | manager1@bess.com | Manager1@bess |
-| Technician | arjun.tech@bess.com | Arjun@bess1 |
+| `bess-portal-backend` | Web Service (Node) | Render Free |
+| `bess-portal-frontend` | Static Site | Render Free |
+| Database | PostgreSQL | Neon.tech (AWS Singapore) |
 
----
-
-## Features by Role
-
-### Admin
-- View all assets with search, filters (status / category / date range), sorting, and pagination
-- Manage all users — promote role, activate / deactivate accounts
-- View and filter all alerts globally (severity, status, date range)
-- Analytics tab:
-  - Asset status pie chart and monthly registration bar chart
-  - Alert trends line chart (last 30 days, by severity)
-  - SoH portfolio heatmap (all assets ranked by State of Health)
-- Recent activity feed (logs, alerts, user registrations)
-
-### Asset Manager
-- Register and manage own BESS assets (GRID_SCALE / COMMERCIAL / RESIDENTIAL)
-- Upload site images per asset
-- Assign / unassign field technicians to assets
-- Raise, acknowledge, and resolve alerts on own assets
-- Filter maintenance logs by type and date range
-- Portfolio average SoH shown in sidebar
-- Per-asset SoH health bar on asset cards
-
-### Technician
-- View assigned assets only
-- Submit maintenance logs (logType, SoH%, temperature, notes, visitedAt)
-- Raise alerts from the field
-- Assignment guard — log requests rejected if not assigned to that asset
+**Backend build command:** `npm install --include=dev && npm run build`
+**Backend start command:** `node dist/server.js`
+**Frontend build command:** `npm install && npm run build`
+**Frontend publish directory:** `dist`
 
 ---
 
@@ -120,7 +163,7 @@ Open http://localhost:5173 in your browser.
 
 ---
 
-## API Endpoints (summary)
+## API Endpoints
 
 ```
 POST   /api/auth/register
